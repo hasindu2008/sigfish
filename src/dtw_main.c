@@ -29,6 +29,8 @@ static struct option long_options[] = {
     {"output",required_argument, 0, 'o'},          //10 output to a file [stdout]
     {"window",required_argument, 0, 'w'},          //11 the genomic window (region)
     {"rna",no_argument,0,0},                       //12 if RNA (eventalign only)
+    {"prefix",required_argument,0,'b'},            //13
+    {"query-size",required_argument,0,'q'},        //14
     {0, 0, 0, 0}};
 
 
@@ -140,6 +142,18 @@ int dtw_main(int argc, char* argv[]) {
 			}
         } else if (c == 0 && longindex == 12){ //if RNA
             yes_or_no(&opt, SIGFISH_RNA, longindex, "yes", 1);
+        } else if (c == 0 && longindex == 13){ // prefix size
+            opt.prefix_size = atoi(optarg);
+            if (opt.prefix_size < 0) {
+                ERROR("Prefix size should larger than 0. You entered %d",opt.prefix_size);
+                exit(EXIT_FAILURE);
+            }
+        } else if (c == 0 && longindex == 14){ //query size
+            opt.query_size = atoi(optarg);
+            if (opt.query_size < 0) {
+                ERROR("Query size should larger than 0. You entered %d",opt.query_size);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 

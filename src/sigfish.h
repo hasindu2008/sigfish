@@ -20,8 +20,7 @@
 
 //default model IDs
 #define MODEL_ID_DNA_NUCLEOTIDE 1
-#define MODEL_ID_DNA_CPG 2
-#define MODEL_ID_RNA_NUCLEOTIDE 3
+#define MODEL_ID_RNA_NUCLEOTIDE 2
 
 
 
@@ -69,6 +68,14 @@ typedef struct {
 #endif
 } model_t;
 
+typedef struct {
+    int32_t num_ref;
+    char **ref_names;
+    int32_t *ref_lengths;
+
+    float **forward;
+    float **reverse;
+} refsynth_t;
 
 
 /* scaling parameters for the signal : taken from nanopolish */
@@ -103,7 +110,17 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
+    int32_t prefix_size;
+    int32_t query_size;
+
 } opt_t;
+
+typedef struct {
+    int32_t rid;
+    int32_t pos;
+    float score;
+    char d;
+} aln_t;
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {
@@ -124,12 +141,13 @@ typedef struct {
     //scaling
     scalings_t* scalings;
 
+    //results
+    aln_t* aln;
 
-    //stats //set by the load_db
+    //stats
     int64_t sum_bytes;
     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-    int64_t bad_fast5_file; //empty fast5 path returned by readdb, could not open fast5
-    int64_t ultra_long_skipped; //ultra long reads that are skipped
+
 
 
 } db_t;
@@ -169,6 +187,8 @@ typedef struct {
     //stats //set by output_db
     int64_t sum_bytes;
     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+
+    refsynth_t *ref;
 
 } core_t;
 

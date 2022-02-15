@@ -12,7 +12,8 @@
 
 #include "sigfish.h"
 #include "misc.h"
-#include "model.h"
+#include "cdtw.h"
+
 #include "slow5/slow5.h"
 #include "../slow5lib/src/slow5_extra.h"
 
@@ -60,12 +61,12 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
     //model
     core->model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
     MALLOC_CHK(core->model);
-    core->cpgmodel = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER_METH); //15625 is 4^6 which os hardcoded now
-    MALLOC_CHK(core->cpgmodel);
+    // core->cpgmodel = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER_METH); //15625 is 4^6 which os hardcoded now
+    // MALLOC_CHK(core->cpgmodel);
 
     //load the model from files
     uint32_t kmer_size=0;
-    uint32_t kmer_size_meth=0;
+    //uint32_t kmer_size_meth=0;
     if (opt.model_file) {
         kmer_size=read_model(core->model, opt.model_file, MODEL_TYPE_NUCLEOTIDE);
     } else {
@@ -77,16 +78,20 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
             kmer_size=set_model(core->model, MODEL_ID_DNA_NUCLEOTIDE);
         }
     }
-    if (opt.meth_model_file) {
-        kmer_size_meth=read_model(core->cpgmodel, opt.meth_model_file, MODEL_TYPE_METH);
-    } else {
-        kmer_size_meth=set_model(core->cpgmodel, MODEL_ID_DNA_CPG);
-    }
-    if( kmer_size != kmer_size_meth){
-        ERROR("The k-mer size of the nucleotide model (%d) and the methylation model (%d) should be the same.",kmer_size,kmer_size_meth);
-        exit(EXIT_FAILURE);
-    }
+    // if (opt.meth_model_file) {
+    //     kmer_size_meth=read_model(core->cpgmodel, opt.meth_model_file, MODEL_TYPE_METH);
+    // } else {
+    //     kmer_size_meth=set_model(core->cpgmodel, MODEL_ID_DNA_CPG);
+    // }
+    // if( kmer_size != kmer_size_meth){
+    //     ERROR("The k-mer size of the nucleotide model (%d) and the methylation model (%d) should be the same.",kmer_size,kmer_size_meth);
+    //     exit(EXIT_FAILURE);
+    // }
     core->kmer_size = kmer_size;
+
+
+    //synthetic reference
+    core->ref = gen_ref(fastafile,core->model,kmer_size);
 
     core->opt = opt;
 
@@ -107,7 +112,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt) {
     free(core->model);
-    free(core->cpgmodel);
+    // free(core->cpgmodel);
 
     if(core->reg_list){
         for(int64_t i=0;i<core->reg_n;i++){
@@ -115,6 +120,8 @@ void free_core(core_t* core,opt_t opt) {
         }
         free(core->reg_list);
     }
+
+    free_ref(core->ref);
 
     slow5_close(core->sf);
     free(core);
@@ -140,6 +147,9 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->current_signal);
 
     db->et = (event_table*)malloc(sizeof(event_table) * db->capacity_rec);
+    MALLOC_CHK(db->et);
+
+    db->aln = (aln_t *)malloc(sizeof(aln_t) * db->capacity_rec);
     MALLOC_CHK(db->et);
 
     db->total_reads=0;
@@ -193,7 +203,7 @@ void parse_single(core_t* core,db_t* db, int32_t i){
 
     assert(db->mem_bytes[i]>0);
     assert(db->mem_records[i]!=NULL);
-    int ret=slow5_rec_depress_parse(&(db->mem_records[i]), &(db->mem_bytes[i]), NULL, &(db->slow5_rec[i]), core->sf);
+    int ret=slow5_rec_depress_parse(&db->mem_records[i], &db->mem_bytes[i], NULL, &db->slow5_rec[i], core->sf);
     if(ret!=0){
         ERROR("Error parsing the record %d",i);
         exit(EXIT_FAILURE);
@@ -254,7 +264,31 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
     if(db->slow5_rec[i]->len_raw_signal>0){
 
+        uint64_t start_idx =  core->opt.prefix_size;
+        uint64_t end_idx = core->opt.prefix_size+core->opt.query_size;
 
+        assert(end_idx <= db->et[i].n);
+
+        float event_mean = 0;
+        float event_var = 0;
+        float event_stdv = 0;
+        float num_samples = end_idx-start_idx;
+
+        event_t *rawptr = db->et[i].event;
+
+        for(uint64_t j=start_idx; j<end_idx; j++){
+            event_mean += rawptr[j].mean;
+        }
+        event_mean /= num_samples;
+        for(uint64_t j=start_idx; j<end_idx; j++){
+            event_var += (rawptr[j].mean-event_mean)*(rawptr[j].mean-event_mean);
+        }
+        event_var /= num_samples;
+        event_stdv = sqrt(event_var);
+
+        for(uint64_t j=start_idx; j<end_idx; j++){
+            rawptr[j].mean = (rawptr[j].mean-event_mean)/event_stdv;
+        }
     }
 
 }
@@ -262,6 +296,67 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 void dtw_single(core_t* core,db_t* db, int32_t i) {
 
     if(db->slow5_rec[i]->len_raw_signal>0){
+
+        float score = INFINITY;
+        int32_t pos = 0;
+        int32_t rid = -1;
+        char d = 0;
+
+        int32_t qlen =core->opt.query_size;
+        float *query = (float *)malloc(sizeof(float)*qlen);
+        MALLOC_CHK(query);
+
+        for(int j=0;j<qlen;j++){
+            query[j] = db->et[i].event[j+core->opt.prefix_size].mean;
+        }
+
+        //fprintf(stderr,"numref %d\n",core->ref->num_ref)    ;
+        for(int j=0;j<core->ref->num_ref;j++){
+
+            int32_t rlen =core->ref->ref_lengths[j];
+            float *cost = (float *)malloc(sizeof(float) * qlen * rlen);
+            MALLOC_CHK(cost);
+
+            //fprintf(stderr,"%d,%d\n",qlen,rlen);
+
+            subsequence(query, core->ref->forward[j], qlen , rlen, cost);
+            // for(int k=0;k<qlen;k++){
+            //     for(int l=0;l<rlen;l++){
+            //         fprintf(stderr,"%f,",cost[k*rlen+l]);
+            //     }
+            //     fprintf(stderr,"\n");
+            // }
+            // fprintf(stderr,"\n");
+            // exit(0);
+            for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
+                if(cost[k]<score){
+                    score = cost[k];
+                    pos = k-(qlen-1)*rlen;
+                    rid = j;
+                    d = '+';
+                }
+            }
+
+            subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
+            for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
+                if(cost[k]<score){
+                    score = cost[k];
+                    pos = k-(qlen-1)*rlen;
+                    rid = j;
+                    d = '-';
+                }
+            }
+
+            free(cost);
+
+        }
+
+        free(query);
+
+        db->aln[i].score = score;
+        db->aln[i].pos = d == '+' ? pos : core->ref->ref_lengths[rid] - pos ;
+        db->aln[i].rid = rid;
+        db->aln[i].d = d;
 
     }
 
@@ -287,16 +382,31 @@ void output_db(core_t* core, db_t* db) {
 
     int32_t i = 0;
     for (i = 0; i < db->n_rec; i++) {
-            printf(">%s\tLN:%d\tEVENTSTART:%d\tEVENTEND:%d\n",
-                   db->slow5_rec[i]->read_id, (int)db->et[i].n,
-                   (int)db->et[i].start, (int)db->et[i].end);
-            uint32_t j = 0;
-            for (j = 0; j < db->et[i].n; j++) {
-                printf("{%d,%f,%f,%f}\t", (int)db->et[i].event[j].start,
-                       db->et[i].event[j].length, db->et[i].event[j].mean,
-                       db->et[i].event[j].stdv);
-            }
-            printf("\n");
+        // printf(">%s\tLN:%d\tEVENTSTART:%d\tEVENTEND:%d\n",
+        //        db->slow5_rec[i]->read_id, (int)db->et[i].n,
+        //        (int)db->et[i].start, (int)db->et[i].end);
+        // uint32_t j = 0;
+        // for (j = 0; j < db->et[i].n; j++) {
+        //     printf("{%d,%f,%f,%f}\t", (int)db->et[i].event[j].start,
+        //            db->et[i].event[j].length, db->et[i].event[j].mean,
+        //            db->et[i].event[j].stdv);
+        // }
+        // printf("\n");
+
+
+        // Output of results
+        printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
+        printf("%d\t%d\t%d\t", core->opt.query_size , core->opt.prefix_size,core->opt.query_size+core->opt.prefix_size); // Query sequence length, start, end
+        printf("%c\t",db->aln[i].d); // Direction
+        printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
+        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Target sequence length
+
+
+        printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
+        printf("%d\t",db->aln[i].pos); // Target end
+        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Number of residues
+        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); //  Alignment block length
+        printf("%d\n",60); // Mapq //todo
 
     }
 
@@ -333,6 +443,7 @@ void free_db(db_t* db) {
     free(db->current_signal);
 
     free(db->et);
+    free(db->aln);
     //free(db->scalings);
 
     free(db);
@@ -350,5 +461,8 @@ void init_opt(opt_t* opt) {
     opt->meth_model_file = NULL;
 
     opt->debug_break=-1;
+
+    opt->prefix_size = 50;
+    opt->query_size = 250;
 
 }

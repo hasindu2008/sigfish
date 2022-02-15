@@ -17,6 +17,8 @@ OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/thread.o \
       $(BUILD_DIR)/events.o \
       $(BUILD_DIR)/model.o \
+      $(BUILD_DIR)/cdtw.o \
+	  $(BUILD_DIR)/genref.o \
 
 PREFIX = /usr/local
 VERSION = `git describe --tags`
@@ -49,6 +51,12 @@ $(BUILD_DIR)/events.o: src/events.c src/misc.h src/ksort.h
 $(BUILD_DIR)/model.o: src/model.c src/model.h  src/misc.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
+$(BUILD_DIR)/cdtw.o: src/cdtw.c src/cdtw.h
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
+$(BUILD_DIR)/genref.o: src/genref.c
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
 slow5lib/lib/libslow5.a:
 	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local)  lib/libslow5.a
 
@@ -62,7 +70,7 @@ distclean: clean
 	rm -rf $(BUILD_DIR)/* autom4te.cache
 
 test: $(BINARY)
-	./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/example.slow5 > res.txt
+	./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5  > res.txt
 
 valgrind: $(BINARY)
-	valgrind --leak-check=full ./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/example.slow5 > res.txt
+	valgrind --leak-check=full ./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5 > res.txt
