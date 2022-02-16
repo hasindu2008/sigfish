@@ -70,7 +70,7 @@ distclean: clean
 	rm -rf $(BUILD_DIR)/* autom4te.cache
 
 test: $(BINARY)
-	./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5  > res.txt
+	./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5  > test/res.paf
 
 valgrind: $(BINARY)
-	valgrind --leak-check=full ./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5 > res.txt
+	valgrind --leak-check=full ./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5 > test/res.paf

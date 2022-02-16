@@ -372,7 +372,10 @@ void work_per_single_read(core_t* core,db_t* db, int32_t i){
 }
 
 void process_db(core_t* core,db_t* db){
+    double proc_start = realtime();
     work_db(core, db, work_per_single_read);
+    double proc_end = realtime();
+    core->process_db_time += (proc_end-proc_start);
 }
 
 /* write the output for a processed data batch */
