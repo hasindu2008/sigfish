@@ -82,7 +82,7 @@ int dtw_main(int argc, char* argv[]) {
 
     //signal(SIGSEGV, sig_handler);
 
-    const char* optstring = "s:b:g:t:B:K:v:o:w:hV";
+    const char* optstring = "s:b:q:g:t:B:K:v:o:w:hV";
 
     int longindex = 0;
     int32_t c = -1;
@@ -129,6 +129,18 @@ int dtw_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
             fp_help = stdout;
+        } else if (c == 'b'){ // prefix size
+            opt.prefix_size = atoi(optarg);
+            if (opt.prefix_size < 0) {
+                ERROR("Prefix size should larger than 0. You entered %d",opt.prefix_size);
+                exit(EXIT_FAILURE);
+            }
+        } else if (c == 'q'){ //query size
+            opt.query_size = atoi(optarg);
+            if (opt.query_size < 0) {
+                ERROR("Query size should larger than 0. You entered %d",opt.query_size);
+                exit(EXIT_FAILURE);
+            }
         } else if (c == 0 && longindex == 8) { //custom nucleotide model file
             opt.model_file = optarg;
         } else if (c == 0 && longindex == 9){ //custom methylation k-mer model
@@ -142,18 +154,6 @@ int dtw_main(int argc, char* argv[]) {
 			}
         } else if (c == 0 && longindex == 12){ //if RNA
             yes_or_no(&opt, SIGFISH_RNA, longindex, "yes", 1);
-        } else if (c == 0 && longindex == 13){ // prefix size
-            opt.prefix_size = atoi(optarg);
-            if (opt.prefix_size < 0) {
-                ERROR("Prefix size should larger than 0. You entered %d",opt.prefix_size);
-                exit(EXIT_FAILURE);
-            }
-        } else if (c == 0 && longindex == 14){ //query size
-            opt.query_size = atoi(optarg);
-            if (opt.query_size < 0) {
-                ERROR("Query size should larger than 0. You entered %d",opt.query_size);
-                exit(EXIT_FAILURE);
-            }
         }
     }
 
@@ -175,6 +175,8 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"\nadvanced options:\n");
         fprintf(fp_help,"   --kmer-model FILE          custom nucleotide k-mer model file (format similar to test/r9-models/r9.4_450bps.nucleotide.6mer.template.model)\n");
         fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
+        fprintf(fp_help,"   -q INT                     the number of events in query signal to align\n");
+        fprintf(fp_help,"   -b INT                     the number of events to trim at query signal start\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
