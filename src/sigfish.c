@@ -169,7 +169,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
     ret_status_t status={0,0};
     int32_t i = 0;
-    while (db->n_rec < db->capacity_rec && status.num_bytes<core->opt.batch_size_bytes) {
+    while (db->n_rec < db->capacity_rec && db->sum_bytes<core->opt.batch_size_bytes) {
         i=db->n_rec;
         db->mem_records[i] = (char *)slow5_get_next_mem(&(db->mem_bytes[i]), core->sf);
 
@@ -466,7 +466,7 @@ void free_db(db_t* db) {
 void init_opt(opt_t* opt) {
     memset(opt, 0, sizeof(opt_t));
     opt->batch_size = 512;
-    opt->batch_size_bytes = 2*1000*1000;
+    opt->batch_size_bytes = 20*1000*1000;
     opt->num_thread = 8;
     opt->region_str = NULL; //whole genome processing if null
 
