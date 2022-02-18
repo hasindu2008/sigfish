@@ -204,13 +204,11 @@ void parse_single(core_t* core,db_t* db, int32_t i){
     assert(db->mem_bytes[i]>0);
     assert(db->mem_records[i]!=NULL);
     db->slow5_rec[i]=NULL;
-    fprintf(stderr,"Parsing %d: %lddbytes\n",i,db->mem_bytes[i]);
     int ret=slow5_rec_depress_parse(&db->mem_records[i], &db->mem_bytes[i], NULL, &db->slow5_rec[i], core->sf);
     if(ret!=0){
         ERROR("Error parsing the record %d",i);
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr,"Parsed %d %s\n",i,db->slow5_rec[i]->read_id);
 
 }
 
