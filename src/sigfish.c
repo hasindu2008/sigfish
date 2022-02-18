@@ -203,11 +203,14 @@ void parse_single(core_t* core,db_t* db, int32_t i){
 
     assert(db->mem_bytes[i]>0);
     assert(db->mem_records[i]!=NULL);
+    db->slow5_rec[i]=NULL;
+    fprintf(stderr,"Parsing %d: %lddbytes\n",i,db->mem_bytes[i]);
     int ret=slow5_rec_depress_parse(&db->mem_records[i], &db->mem_bytes[i], NULL, &db->slow5_rec[i], core->sf);
     if(ret!=0){
         ERROR("Error parsing the record %d",i);
         exit(EXIT_FAILURE);
     }
+    fprintf(stderr,"Parsed %d %s\n",i,db->slow5_rec[i]->read_id);
 
 }
 
@@ -267,7 +270,14 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
         uint64_t start_idx =  core->opt.prefix_size;
         uint64_t end_idx = core->opt.prefix_size+core->opt.query_size;
 
-        assert(end_idx <= db->et[i].n);
+        if (start_idx > db->et[i].n) {
+            start_idx = db->et[i].n;
+            WARNING("Read %s has only %ld events which is less than %d prefix\n",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+        }
+        if(end_idx > db->et[i].n){
+            end_idx = db->et[i].n;
+            WARNING("Read %s has only %ld events which is less than %d prefix+query_size\n",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+        }
 
         float event_mean = 0;
         float event_var = 0;
