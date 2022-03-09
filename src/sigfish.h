@@ -72,6 +72,7 @@ typedef struct {
     int32_t num_ref;
     char **ref_names;
     int32_t *ref_lengths;
+    int32_t *ref_seq_lengths;
 
     float **forward;
     float **reverse;

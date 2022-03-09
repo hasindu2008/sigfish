@@ -111,7 +111,7 @@ static inline char *reverse_complement(char *f){
     return r;
 }
 
-refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size){
+refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size, int8_t rna, int32_t query_size){
 
     gzFile fp;
     kseq_t *seq;
@@ -124,10 +124,16 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size)
     refsynth_t *ref = (refsynth_t *) malloc(sizeof(refsynth_t));
 
     int c = 1;
+    ref->ref_seq_lengths = (int32_t *) malloc(sizeof(int32_t));
     ref->ref_lengths = (int32_t *) malloc(sizeof(int32_t));
     ref->ref_names = (char **) malloc(sizeof(char *));
     ref->forward = (float **) malloc(sizeof(float *));
-    ref->reverse = (float **) malloc(sizeof(float *));
+    if(!rna){
+        ref->reverse = (float **) malloc(sizeof(float *));
+    }
+    else{
+        ref->reverse = NULL;
+    }
 
     int i = 0;
     while ((l = kseq_read(seq)) >= 0) {
@@ -136,27 +142,57 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size)
         if(i+1 > c){
             c *= 2;
             ref->ref_lengths = (int32_t *) realloc(ref->ref_lengths, c*sizeof(int32_t));
+            ref->ref_seq_lengths = (int32_t *) realloc(ref->ref_seq_lengths, c*sizeof(int32_t));
             ref->ref_names = (char **) realloc(ref->ref_names, c*sizeof(char *));
             ref->forward = (float **) realloc(ref->forward, c*sizeof(float *));
-            ref->reverse = (float **) realloc(ref->reverse, c*sizeof(float *));
+            if(!rna){
+                ref->reverse = (float **) realloc(ref->reverse, c*sizeof(float *));
+            }
         }
 
-        ref->ref_lengths[i] = l+1-kmer_size;
+
+        //int32_t ref_len = rna ? query_size : l+1-kmer_size;
+        int32_t ref_len =  l+1-kmer_size;
+        ref->ref_lengths[i] = ref_len;
+        ref->ref_seq_lengths[i] = l;
         ref->ref_names[i] = (char *) malloc(strlen(seq->name.s)+1);
         strcpy(ref->ref_names[i], seq->name.s);
-        ref->forward[i] = (float *) malloc(l*sizeof(float));
-        ref->reverse[i] = (float *) malloc(l*sizeof(float));
+        ref->forward[i] = (float *) malloc(ref_len*sizeof(float));
 
-        char *rc = reverse_complement(seq->seq.s);
+
+        char *rc = NULL;
+        if(!rna){
+            ref->reverse[i] = (float *) malloc(ref_len*sizeof(float));
+            rc = reverse_complement(seq->seq.s);
+        }
+
         // fprintf(stderr,"%s\n",seq->seq.s);
         // fprintf(stderr,"%s\n",rc);
 
-        for (int j=0; j< ref->ref_lengths[i]; j++){
-            uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
-            ref->forward[i][j] = pore_model[kmer_rank].level_mean;
+        //if(!rna){
+        if(!rna){
+            for (int j=0; j< ref->ref_lengths[i]; j++){
+                uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
+                ref->forward[i][j] = pore_model[kmer_rank].level_mean;
 
-            kmer_rank = get_kmer_rank(rc+j, kmer_size);
-            ref->reverse[i][j] = pore_model[kmer_rank].level_mean;
+                kmer_rank = get_kmer_rank(rc+j, kmer_size);
+                ref->reverse[i][j] = pore_model[kmer_rank].level_mean;
+            }
+        }else{
+            char *f = seq->seq.s;
+            char *reverse = (char *) malloc(strlen(f)*sizeof(char));
+            for(int j=0; j<strlen(f); j++){
+                reverse[j] = f[strlen(f)-j-1];
+            }
+            for(int j=0; j<ref_len; j++){
+                uint32_t kmer_rank = get_kmer_rank(reverse+j, kmer_size);
+                ref->forward[i][j] = pore_model[kmer_rank].level_mean;
+            }
+            free(reverse);
+            // for (int j=0; j< ref->ref_lengths[i]; j++){
+            //     uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
+            //     ref->forward[i][j] = pore_model[kmer_rank].level_mean;
+            // }
         }
 
         // for (int j=0; j< ref->ref_lengths[i]; j++){
@@ -168,10 +204,13 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size)
         // }
         // fprintf(stderr,"\n");
 
-        free(rc);
 
         normalise(ref->forward[i], ref->ref_lengths[i]);
-        normalise(ref->reverse[i], ref->ref_lengths[i]);
+        if (!rna){
+            free(rc);
+            normalise(ref->reverse[i], ref->ref_lengths[i]);
+        }
+
 
         // for (int j=0; j< ref->ref_lengths[i]; j++){
         //     fprintf(stderr,"%f,",ref->forward[i][j]);
@@ -196,10 +235,13 @@ void free_ref(refsynth_t *ref){
     for(int i=0;i<ref->num_ref;i++){
         free(ref->ref_names[i]);
         free(ref->forward[i]);
-        free(ref->reverse[i]);
+        if(ref->reverse){
+            free(ref->reverse[i]);
+        }
     }
 
     free(ref->ref_lengths);
+    free(ref->ref_seq_lengths);
     free(ref->ref_names);
     free(ref->forward);
     free(ref->reverse);

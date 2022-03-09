@@ -91,7 +91,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
 
 
     //synthetic reference
-    core->ref = gen_ref(fastafile,core->model,kmer_size);
+    core->ref = gen_ref(fastafile,core->model,kmer_size,opt.flag & SIGFISH_RNA, opt.query_size);
 
     core->opt = opt;
 
@@ -242,16 +242,16 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         // db->scalings[i] = estimate_scalings_using_mom(
         //     db->read[i], db->read_len[i], core->model, core->kmer_size, db->et[i]);
 
-        //If sequencing RNA, reverse the events to be 3'->5'
-        if (rna){
-            event_t *events = db->et[i].event;
-            size_t n_events = db->et[i].n;
-            for (size_t i = 0; i < n_events/2; ++i) {
-                event_t tmp_event = events[i];
-                events[i]=events[n_events-1-i];
-                events[n_events-1-i]=tmp_event;
-            }
-        }
+        // //If sequencing RNA, reverse the events to be 3'->5'
+        // if (rna){
+        //     event_t *events = db->et[i].event;
+        //     size_t n_events = db->et[i].n;
+        //     for (size_t i = 0; i < n_events/2; ++i) {
+        //         event_t tmp_event = events[i];
+        //         events[i]=events[n_events-1-i];
+        //         events[n_events-1-i]=tmp_event;
+        //     }
+        // }
 
     }
     else{
@@ -310,6 +310,8 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         int32_t rid = -1;
         char d = 0;
 
+        int8_t rna = core->opt.flag & SIGFISH_RNA;
+
         int32_t qlen =core->opt.query_size;
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
@@ -327,7 +329,28 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
             //fprintf(stderr,"%d,%d\n",qlen,rlen);
 
-            subsequence(query, core->ref->forward[j], qlen , rlen, cost);
+            //if(!rna){
+            if(1){
+                subsequence(query, core->ref->forward[j], qlen , rlen, cost);
+                for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
+                    if(cost[k]<score){
+                        score = cost[k];
+                        pos = k-(qlen-1)*rlen;
+                        rid = j;
+                        d = '+';
+                    }
+                }
+            }
+            else{
+                std_dtw(query, core->ref->forward[j], qlen , rlen, cost, 0);
+                int k=qlen*rlen-1;
+                if(cost[k]<score){
+                    score = cost[k];
+                    pos = k-(qlen-1)*rlen;
+                    rid = j;
+                    d = '+';
+                }
+            }
             // for(int k=0;k<qlen;k++){
             //     for(int l=0;l<rlen;l++){
             //         fprintf(stderr,"%f,",cost[k*rlen+l]);
@@ -336,22 +359,16 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             // }
             // fprintf(stderr,"\n");
             // exit(0);
-            for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                if(cost[k]<score){
-                    score = cost[k];
-                    pos = k-(qlen-1)*rlen;
-                    rid = j;
-                    d = '+';
-                }
-            }
 
-            subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
-            for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                if(cost[k]<score){
-                    score = cost[k];
-                    pos = k-(qlen-1)*rlen;
-                    rid = j;
-                    d = '-';
+            if(!rna){
+                subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
+                for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
+                    if(cost[k]<score){
+                        score = cost[k];
+                        pos = k-(qlen-1)*rlen;
+                        rid = j;
+                        d = '-';
+                    }
                 }
             }
 
@@ -410,14 +427,14 @@ void output_db(core_t* core, db_t* db) {
         printf("%d\t%d\t%d\t", core->opt.query_size , core->opt.prefix_size,core->opt.query_size+core->opt.prefix_size); // Query sequence length, start, end
         printf("%c\t",db->aln[i].d); // Direction
         printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
-        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Target sequence length
+        printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]+core->kmer_size-1); // Target sequence length
 
 
         printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
         printf("%d\t",db->aln[i].pos); // Target end
-        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Number of residues
-        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); //  Alignment block length
-        printf("%d\n",60); // Mapq //todo
+        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Number of residues //todo check this
+        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); //  Alignment block length //todo check this
+        printf("%f\n",db->aln[i].score); // Mapq //todo
 
     }
 
