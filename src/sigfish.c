@@ -309,6 +309,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         int32_t pos = 0;
         int32_t rid = -1;
         char d = 0;
+        int8_t rna = core->opt.flag & SIGFISH_RNA;
 
         int32_t qlen =core->opt.query_size;
         float *query = (float *)malloc(sizeof(float)*qlen);
@@ -345,13 +346,15 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                 }
             }
 
-            subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
-            for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                if(cost[k]<score){
-                    score = cost[k];
-                    pos = k-(qlen-1)*rlen;
-                    rid = j;
-                    d = '-';
+            if (!rna) {
+                subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
+                for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
+                    if(cost[k]<score){
+                        score = cost[k];
+                        pos = k-(qlen-1)*rlen;
+                        rid = j;
+                        d = '-';
+                    }
                 }
             }
 
