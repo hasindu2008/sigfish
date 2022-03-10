@@ -22,7 +22,7 @@
 #define MODEL_ID_DNA_NUCLEOTIDE 1
 #define MODEL_ID_RNA_NUCLEOTIDE 2
 
-//#define REVERSE_EVENTS 1
+#define REVERSE_EVENTS 1
 
 /*******************************************************
  * flags related to the user specified options (opt_t) *

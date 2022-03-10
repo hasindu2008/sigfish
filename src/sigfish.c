@@ -272,11 +272,12 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
         if (start_idx > db->et[i].n) {
             start_idx = db->et[i].n;
-            WARNING("Read %s has only %ld events which is less than %d prefix\n",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+            db->et[i].n = 0;
+            WARNING("Read %s has only %ld events which is less than %d prefix",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
         }
         if(end_idx > db->et[i].n){
             end_idx = db->et[i].n;
-            WARNING("Read %s has only %ld events which is less than %d prefix+query_size\n",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+            WARNING("Read %s has only %ld events which is less than %d prefix+query_size",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
         }
 
         float event_mean = 0;
@@ -305,7 +306,7 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
 void dtw_single(core_t* core,db_t* db, int32_t i) {
 
-    if(db->slow5_rec[i]->len_raw_signal>0){
+    if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
         float score = INFINITY;
         int32_t pos = 0;
@@ -313,7 +314,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         char d = 0;
         int8_t rna = core->opt.flag & SIGFISH_RNA;
 
-        int32_t qlen =core->opt.query_size;
+        int32_t qlen = core->opt.prefix_size+core->opt.query_size > (int32_t)db->et[i].n ? db->et[i].n-core->opt.prefix_size : core->opt.query_size;
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
 
@@ -332,6 +333,17 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
             //if(!rna){
             if(1){
+                // fprintf(stderr,"query: ");
+                // for(int k=0;k<qlen;k++){
+                //     fprintf(stderr,"%f,",query[k]);
+                // }
+                //                 fprintf(stderr,"\n");
+                // fprintf(stderr,"Ref: ");
+
+                // for(int k=0;k<rlen;k++){
+                //     fprintf(stderr,"%f,",core->ref->forward[j][k]);
+                // }
+                // fprintf(stderr,"\n\n");
                 subsequence(query, core->ref->forward[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
                     if(cost[k]<score){
@@ -362,7 +374,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             // exit(0);
 
             if (!rna) {
-                subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
+                subsequence(query, core->ref->reverse[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
                     if(cost[k]<score){
                         score = cost[k];
@@ -422,21 +434,22 @@ void output_db(core_t* core, db_t* db) {
         // }
         // printf("\n");
 
+        if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
+            // Output of results
+            printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
+            printf("%d\t%d\t%d\t", core->opt.query_size , core->opt.prefix_size,core->opt.query_size+core->opt.prefix_size); // Query sequence length, start, end
+            printf("%c\t",db->aln[i].d); // Direction
+            printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
 
-        // Output of results
-        printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
-        printf("%d\t%d\t%d\t", core->opt.query_size , core->opt.prefix_size,core->opt.query_size+core->opt.prefix_size); // Query sequence length, start, end
-        printf("%c\t",db->aln[i].d); // Direction
-        printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
-        printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
 
-
-        printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
-        printf("%d\t",db->aln[i].pos); // Target end
-        printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Number of residues //todo check this
-        printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); //  Alignment block length //todo check this
-        printf("%d\n",60); // Mapq //todo
-        //printf("%f\n",db->aln[i].score); // Mapq //todo
+            printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
+            printf("%d\t",db->aln[i].pos); // Target end
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Number of residues //todo check this
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); //  Alignment block length //todo check this
+            printf("%d\n",60); // Mapq //todo
+            //printf("%f\n",db->aln[i].score); // Mapq //todo
+        }
 
     }
 
