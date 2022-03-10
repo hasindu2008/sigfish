@@ -31,6 +31,7 @@ static struct option long_options[] = {
     {"rna",no_argument,0,0},                       //12 if RNA (eventalign only)
     {"prefix",required_argument,0,'b'},            //13
     {"query-size",required_argument,0,'q'},        //14
+    {"debug-break",required_argument, 0, 0},       //15 break after processing the first batch (used for debugging)
     {0, 0, 0, 0}};
 
 
@@ -154,6 +155,8 @@ int dtw_main(int argc, char* argv[]) {
 			}
         } else if (c == 0 && longindex == 12){ //if RNA
             yes_or_no(&opt, SIGFISH_RNA, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 15){ //debug break
+            opt.debug_break = atoi(optarg);
         }
     }
 
@@ -177,6 +180,8 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
         fprintf(fp_help,"   -q INT                     the number of events in query signal to align\n");
         fprintf(fp_help,"   -b INT                     the number of events to trim at query signal start\n");
+        fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
+
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }

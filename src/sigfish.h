@@ -120,7 +120,9 @@ typedef struct {
     int32_t rid;
     int32_t pos;
     float score;
+    float score2;
     char d;
+    uint8_t mapq;
 } aln_t;
 
 /* a batch of read data (dynamic data based on the reads) */

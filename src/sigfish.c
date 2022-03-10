@@ -309,6 +309,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
     if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
         float score = INFINITY;
+        float score2 = INFINITY;
         int32_t pos = 0;
         int32_t rid = -1;
         char d = 0;
@@ -347,6 +348,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                 subsequence(query, core->ref->forward[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
                     if(cost[k]<score){
+                        score2=score;
                         score = cost[k];
                         pos = k-(qlen-1)*rlen;
                         rid = j;
@@ -358,6 +360,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                 std_dtw(query, core->ref->forward[j], qlen , rlen, cost, 0);
                 int k=qlen*rlen-1;
                 if(cost[k]<score){
+                    score2=score;
                     score = cost[k];
                     pos = k-(qlen-1)*rlen;
                     rid = j;
@@ -377,6 +380,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                 subsequence(query, core->ref->reverse[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
                     if(cost[k]<score){
+                        score2=score;
                         score = cost[k];
                         pos = k-(qlen-1)*rlen;
                         rid = j;
@@ -392,10 +396,16 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         free(query);
 
         db->aln[i].score = score;
+        db->aln[i].score2 = score2;
         db->aln[i].pos = d == '+' ? pos : core->ref->ref_lengths[rid] - pos ;
         db->aln[i].rid = rid;
         db->aln[i].d = d;
 
+        int mapq=(int)round(-10*log10(1-(score2-score)/score2)*100);
+        if(mapq>60){
+            mapq=60;
+        }
+        db->aln[i].mapq = mapq;
     }
 
 }
@@ -447,7 +457,10 @@ void output_db(core_t* core, db_t* db) {
             printf("%d\t",db->aln[i].pos); // Target end
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Number of residues //todo check this
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); //  Alignment block length //todo check this
-            printf("%d\n",60); // Mapq //todo
+            printf("%d\t",db->aln[i].mapq); // Mapq //todo
+            printf("tp:A:P\t");
+            printf("d1:f:%f\t",db->aln[i].score); // Mapq //todo
+            printf("d2:f:%f\n",db->aln[i].score2); // Mapq //todo
             //printf("%f\n",db->aln[i].score); // Mapq //todo
         }
 

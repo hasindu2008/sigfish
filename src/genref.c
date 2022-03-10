@@ -150,9 +150,9 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
             }
         }
 
-
-        //int32_t ref_len = rna ? query_size : l+1-kmer_size;
-        int32_t ref_len =  l+1-kmer_size;
+        int32_t ref_len = rna ? ((uint32_t)query_size > l+1-kmer_size ? l+1-kmer_size : query_size) : l+1-kmer_size;
+        //fprintf(stderr,"%s\t%d\n",seq->name.s,ref_len);
+        //int32_t ref_len =  l+1-kmer_size;
         ref->ref_lengths[i] = ref_len;
         ref->ref_seq_lengths[i] = l;
         ref->ref_names[i] = (char *) malloc(strlen(seq->name.s)+1);
