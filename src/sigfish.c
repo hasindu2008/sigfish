@@ -91,7 +91,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
 
 
     //synthetic reference
-    core->ref = gen_ref(fastafile,core->model,kmer_size,opt.flag & SIGFISH_RNA, opt.query_size);
+    core->ref = gen_ref(fastafile,core->model,kmer_size,opt.flag, opt.query_size);
 
     core->opt = opt;
 
@@ -242,7 +242,7 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         // db->scalings[i] = estimate_scalings_using_mom(
         //     db->read[i], db->read_len[i], core->model, core->kmer_size, db->et[i]);
 
-    #ifdef REVERSE_EVENTS
+    if(core->opt.flag & SIGFISH_INV){
         //If sequencing RNA, reverse the events to be 3'->5'
         if (rna){
             event_t *events = db->et[i].event;
@@ -253,7 +253,7 @@ void event_single(core_t* core,db_t* db, int32_t i) {
                 events[n_events-1-i]=tmp_event;
             }
         }
-    #endif
+    }
 
     }
     else{
@@ -304,17 +304,54 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
+aln_t *init_aln(){
+    aln_t *aln = (aln_t *)malloc(sizeof(aln_t)*SECONDARY_CAP);
+    MALLOC_CHK(aln);
+    float score = INFINITY;
+    float score2 = INFINITY;
+    int32_t pos = -1;
+    int32_t rid = -1;
+    char d = 0;
+    for (int l=0; l<SECONDARY_CAP;l++) aln[l] = {rid,pos,score,score2,d,0};
+
+    return aln;
+}
+
+void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d){
+    int l=0;
+    for(; l<SECONDARY_CAP; l++){
+        if (score > aln[l].score){
+            break;
+        } else {
+            continue;
+        }
+    }
+
+    if(l!=0){
+        for(int m=0;m<l;m++){
+            aln[m].pos = aln[m+1].pos;
+            aln[m].rid = aln[m+1].rid;
+            aln[m].d = aln[m+1].d;
+            aln[m].score = aln[m+1].score;
+        }
+        aln[l-1].score = score;
+        aln[l-1].pos = pos;
+        aln[l-1].rid = rid;
+        aln[l-1].d = d;
+    }
+
+}
+
+
 void dtw_single(core_t* core,db_t* db, int32_t i) {
 
     if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
-        float score = INFINITY;
-        float score2 = INFINITY;
-        int32_t pos = 0;
-        int32_t rid = -1;
-        char d = 0;
-        int8_t rna = core->opt.flag & SIGFISH_RNA;
 
+
+        aln_t *aln=init_aln();
+
+        int8_t rna = core->opt.flag & SIGFISH_RNA;
         int32_t qlen = core->opt.prefix_size+core->opt.query_size > (int32_t)db->et[i].n ? db->et[i].n-core->opt.prefix_size : core->opt.query_size;
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
@@ -332,8 +369,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
             //fprintf(stderr,"%d,%d\n",qlen,rlen);
 
-            //if(!rna){
-            if(1){
+            if(!(core->opt.flag & SIGFISH_DTW)){
                 // fprintf(stderr,"query: ");
                 // for(int k=0;k<qlen;k++){
                 //     fprintf(stderr,"%f,",query[k]);
@@ -347,25 +383,27 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                 // fprintf(stderr,"\n\n");
                 subsequence(query, core->ref->forward[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                    if(cost[k]<score){
-                        score2=score;
-                        score = cost[k];
-                        pos = k-(qlen-1)*rlen;
-                        rid = j;
-                        d = '+';
-                    }
+                    update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+');
+                    // if(cost[k]<score){
+                    //     score2=score;
+                    //     score = cost[k];
+                    //     pos = k-(qlen-1)*rlen;
+                    //     rid = j;
+                    //     d = '+';
+                    // }
                 }
             }
             else{
                 std_dtw(query, core->ref->forward[j], qlen , rlen, cost, 0);
                 int k=qlen*rlen-1;
-                if(cost[k]<score){
-                    score2=score;
-                    score = cost[k];
-                    pos = k-(qlen-1)*rlen;
-                    rid = j;
-                    d = '+';
-                }
+                update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+');
+                // if(cost[k]<score){
+                //     score2=score;
+                //     score = cost[k];
+                //     pos = k-(qlen-1)*rlen;
+                //     rid = j;
+                //     d = '+';
+                // }
             }
             // for(int k=0;k<qlen;k++){
             //     for(int l=0;l<rlen;l++){
@@ -379,13 +417,14 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             if (!rna) {
                 subsequence(query, core->ref->reverse[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                    if(cost[k]<score){
-                        score2=score;
-                        score = cost[k];
-                        pos = k-(qlen-1)*rlen;
-                        rid = j;
-                        d = '-';
-                    }
+                    update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+');
+                    // if(cost[k]<score){
+                    //     score2=score;
+                    //     score = cost[k];
+                    //     pos = k-(qlen-1)*rlen;
+                    //     rid = j;
+                    //     d = '-';
+                    // }
                 }
             }
 
@@ -395,17 +434,20 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         free(query);
 
-        db->aln[i].score = score;
-        db->aln[i].score2 = score2;
-        db->aln[i].pos = d == '+' ? pos : core->ref->ref_lengths[rid] - pos ;
-        db->aln[i].rid = rid;
-        db->aln[i].d = d;
 
-        int mapq=(int)round(-10*log10(1-(score2-score)/score2)*100);
+        db->aln[i].score = aln[SECONDARY_CAP-1].score;
+        db->aln[i].score2 = aln[SECONDARY_CAP-2].score;
+        db->aln[i].pos = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos : core->ref->ref_lengths[db->aln[i].rid] - aln[SECONDARY_CAP-1].pos  ;
+        db->aln[i].rid = aln[SECONDARY_CAP-1].rid;
+        db->aln[i].d = aln[SECONDARY_CAP-1].d;
+
+        int mapq=(int)round(-10*log10(1-(db->aln[i].score2-db->aln[i].score)/db->aln[i].score2)*100);
         if(mapq>60){
             mapq=60;
         }
         db->aln[i].mapq = mapq;
+
+        free(aln);
     }
 
 }

@@ -111,7 +111,7 @@ static inline char *reverse_complement(char *f){
     return r;
 }
 
-refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size, int8_t rna, int32_t query_size){
+refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size, uint32_t flag, int32_t query_size){
 
     gzFile fp;
     kseq_t *seq;
@@ -120,6 +120,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
     F_CHK(fp,genome);
     seq = kseq_init(fp);
     MALLOC_CHK(seq);
+    int8_t rna = flag & SIGFISH_RNA;
 
     refsynth_t *ref = (refsynth_t *) malloc(sizeof(refsynth_t));
 
@@ -179,23 +180,24 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
                 ref->reverse[i][j] = pore_model[kmer_rank].level_mean;
             }
         }else{
-        #ifndef REVERSE_EVENTS
+            if(flag & SIGFISH_INV){
             // char *f = seq->seq.s;
             // char *reverse = (char *) malloc(strlen(f)*sizeof(char));
             // for(int j=0; j<(int)strlen(f); j++){
             //     reverse[j] = f[strlen(f)-j-1];
             // }
-            for(int j=0; j<ref_len; j++){
-                uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
-                ref->forward[i][ref_len-j-1] = pore_model[kmer_rank].level_mean;
+                for(int j=0; j<ref_len; j++){
+                    uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
+                    ref->forward[i][ref_len-j-1] = pore_model[kmer_rank].level_mean;
+                }
             }
             // free(reverse);
-        #else
-            for (int j=0; j< ref->ref_lengths[i]; j++){
-                uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
-                ref->forward[i][j] = pore_model[kmer_rank].level_mean;
+            else{
+                for (int j=0; j< ref->ref_lengths[i]; j++){
+                    uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
+                    ref->forward[i][j] = pore_model[kmer_rank].level_mean;
+                }
             }
-        #endif
         }
 
         // for (int j=0; j< ref->ref_lengths[i]; j++){

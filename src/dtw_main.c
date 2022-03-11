@@ -32,6 +32,9 @@ static struct option long_options[] = {
     {"prefix",required_argument,0,'b'},            //13
     {"query-size",required_argument,0,'q'},        //14
     {"debug-break",required_argument, 0, 0},       //15 break after processing the first batch (used for debugging)
+    {"dtw-std", no_argument, 0, 0},                //16 Use standard DTW instead of subsequence dtw
+    {"invert", no_argument, 0, 0},                 //17 Reverse the events instead of the reference
+    {"secondary", required_argument, 0, 0},        //18 Print secondary mappings or not
     {0, 0, 0, 0}};
 
 
@@ -157,9 +160,25 @@ int dtw_main(int argc, char* argv[]) {
             yes_or_no(&opt, SIGFISH_RNA, longindex, "yes", 1);
         } else if(c == 0 && longindex == 15){ //debug break
             opt.debug_break = atoi(optarg);
+        } else if(c == 0 && longindex == 16){ //dtw variant
+            yes_or_no(&opt, SIGFISH_DTW, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 17){ //reverse the events instead of ref
+            yes_or_no(&opt, SIGFISH_INV, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 18){ //secondary mappings
+            yes_or_no(&opt, SIGFISH_SEC, longindex, optarg, 1);
         }
     }
 
+    if (!(opt.flag & SIGFISH_RNA)){ //dna
+        if(opt.flag & SIGFISH_DTW){
+            ERROR("%s","DTW is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+        if(opt.flag & SIGFISH_INV){
+            ERROR("%s","Inversion is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     if (slow5file == NULL || fastafile == NULL || fp_help == stdout) {
         fprintf(fp_help,"Usage: sigfish [OPTIONS] -s reads.slow5 -g genome.fa\n");
@@ -181,6 +200,9 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"   -q INT                     the number of events in query signal to align\n");
         fprintf(fp_help,"   -b INT                     the number of events to trim at query signal start\n");
         fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
+        fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
+        fprintf(fp_help,"   --invert                   reverse the query events instead of reference\n");
+        fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no.\n");
 
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);

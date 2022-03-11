@@ -22,14 +22,16 @@
 #define MODEL_ID_DNA_NUCLEOTIDE 1
 #define MODEL_ID_RNA_NUCLEOTIDE 2
 
-//#define REVERSE_EVENTS 1
-
 /*******************************************************
  * flags related to the user specified options (opt_t) *
  *******************************************************/
 
 #define SIGFISH_RNA 0x001 //if RNA or not
+#define SIGFISH_DTW 0x002 //if dtw-std
+#define SIGFISH_INV 0x004 //if reverse events instead of ref
+#define SIGFISH_SEC 0x008 //if secondaries are printed
 
+#define SECONDARY_CAP 5 //maximum number of secondary events to print
 
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
