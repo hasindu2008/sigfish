@@ -328,11 +328,8 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d){
     }
 
     if(l!=0){
-        for(int m=0;m<l;m++){
-            aln[m].pos = aln[m+1].pos;
-            aln[m].rid = aln[m+1].rid;
-            aln[m].d = aln[m+1].d;
-            aln[m].score = aln[m+1].score;
+        for(int m=0;m<l-1;m++){
+            aln[m] = aln[m+1];
         }
         aln[l-1].score = score;
         aln[l-1].pos = pos;
@@ -417,7 +414,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             if (!rna) {
                 subsequence(query, core->ref->reverse[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                    update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+');
+                    update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '-');
                     // if(cost[k]<score){
                     //     score2=score;
                     //     score = cost[k];
@@ -437,7 +434,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         db->aln[i].score = aln[SECONDARY_CAP-1].score;
         db->aln[i].score2 = aln[SECONDARY_CAP-2].score;
-        db->aln[i].pos = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos : core->ref->ref_lengths[db->aln[i].rid] - aln[SECONDARY_CAP-1].pos  ;
+        db->aln[i].pos = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos : core->ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos  ;
         db->aln[i].rid = aln[SECONDARY_CAP-1].rid;
         db->aln[i].d = aln[SECONDARY_CAP-1].d;
 
