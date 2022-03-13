@@ -35,6 +35,7 @@ static struct option long_options[] = {
     {"dtw-std", no_argument, 0, 0},                //16 Use standard DTW instead of subsequence dtw
     {"invert", no_argument, 0, 0},                 //17 Reverse the events instead of the reference
     {"secondary", required_argument, 0, 0},        //18 Print secondary mappings or not
+    {"full-ref", no_argument, 0, 0},               //19 Map to full reference instead of a segment
     {0, 0, 0, 0}};
 
 
@@ -166,6 +167,8 @@ int dtw_main(int argc, char* argv[]) {
             yes_or_no(&opt, SIGFISH_INV, longindex, "yes", 1);
         } else if(c == 0 && longindex == 18){ //secondary mappings
             yes_or_no(&opt, SIGFISH_SEC, longindex, optarg, 1);
+        } else if(c == 0 && longindex == 19){ //use full reference
+            yes_or_no(&opt, SIGFISH_REF, longindex, "yes", 1);
         }
     }
 
@@ -176,6 +179,10 @@ int dtw_main(int argc, char* argv[]) {
         }
         if(opt.flag & SIGFISH_INV){
             ERROR("%s","Inversion is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+        if(opt.flag & SIGFISH_REF){
+            ERROR("%s","--full-ref is only available for RNA.");
             exit(EXIT_FAILURE);
         }
     }
@@ -203,6 +210,7 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
         fprintf(fp_help,"   --invert                   reverse the query events instead of reference\n");
         fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no.\n");
+        fprintf(fp_help,"   --full-ref                 map to the full reference.\n");
 
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);

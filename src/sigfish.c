@@ -242,7 +242,8 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         // db->scalings[i] = estimate_scalings_using_mom(
         //     db->read[i], db->read_len[i], core->model, core->kmer_size, db->et[i]);
 
-    if(core->opt.flag & SIGFISH_INV){
+    if(core->opt.flag & SIGFISH_INV){ //Reversing the query to be 3' -> 5'
+        //fprintf(stderr,"Reversing the query to be 3' -> 5'\n");
         //If sequencing RNA, reverse the events to be 3'->5'
         if (rna){
             event_t *events = db->et[i].event;

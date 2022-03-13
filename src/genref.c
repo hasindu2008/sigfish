@@ -151,7 +151,15 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
             }
         }
 
-        int32_t ref_len = rna ? ((uint32_t)query_size > l+1-kmer_size ? l+1-kmer_size : query_size) : l+1-kmer_size;
+        int32_t ref_len;
+        if(!rna || flag & SIGFISH_REF){ //dna or use full reference
+            ref_len = l+1-kmer_size;
+        }
+        else{ //rna
+            ref_len = ((uint32_t)query_size > l+1-kmer_size ? l+1-kmer_size : query_size);
+            fprintf(stderr,"Only %d bases of %d bases in reference sequence will be used\n", ref_len, l);
+        }
+        //int32_t ref_len = rna ? ((uint32_t)query_size > l+1-kmer_size ? l+1-kmer_size : query_size) : l+1-kmer_size;
         //fprintf(stderr,"%s\t%d\n",seq->name.s,ref_len);
         //int32_t ref_len =  l+1-kmer_size;
         ref->ref_lengths[i] = ref_len;
@@ -170,30 +178,35 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
         // fprintf(stderr,"%s\n",seq->seq.s);
         // fprintf(stderr,"%s\n",rc);
 
-        //if(!rna){
-        if(!rna){
-            for (int j=0; j< ref->ref_lengths[i]; j++){
+        if(!rna){ //dna
+            for (int j=0; j< ref_len; j++){
                 uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
                 ref->forward[i][j] = pore_model[kmer_rank].level_mean;
 
                 kmer_rank = get_kmer_rank(rc+j, kmer_size);
                 ref->reverse[i][j] = pore_model[kmer_rank].level_mean;
             }
-        }else{
-            if(flag & SIGFISH_INV){
-            // char *f = seq->seq.s;
-            // char *reverse = (char *) malloc(strlen(f)*sizeof(char));
-            // for(int j=0; j<(int)strlen(f); j++){
-            //     reverse[j] = f[strlen(f)-j-1];
-            // }
+        }else{ //rna
+            if(!(flag & SIGFISH_INV)){
+                fprintf(stderr,"Reversing the reference to be 5' -> 3'\n");
+                // char *f = seq->seq.s;
+                // char *reverse = (char *) malloc(strlen(f)*sizeof(char));
+                // for(int j=0; j<(int)strlen(f); j++){
+                //     reverse[j] = f[strlen(f)-j-1];
+                // }
+                char *seq_end = seq->seq.s+l-ref_len-(kmer_size-1);
                 for(int j=0; j<ref_len; j++){
-                    uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
+                    uint32_t kmer_rank = get_kmer_rank(seq_end+j, kmer_size);
                     ref->forward[i][ref_len-j-1] = pore_model[kmer_rank].level_mean;
                 }
+                // for(int j=0; j<ref_len; j++){
+                //     uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
+                //     ref->forward[i][ref_len-j-1] = pore_model[kmer_rank].level_mean;
+                // }
             }
-            // free(reverse);
+                // free(reverse);
             else{
-                for (int j=0; j< ref->ref_lengths[i]; j++){
+                for (int j=0; j< ref_len; j++){
                     uint32_t kmer_rank = get_kmer_rank(seq->seq.s+j, kmer_size);
                     ref->forward[i][j] = pore_model[kmer_rank].level_mean;
                 }

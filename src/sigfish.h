@@ -30,6 +30,7 @@
 #define SIGFISH_DTW 0x002 //if dtw-std
 #define SIGFISH_INV 0x004 //if reverse events instead of ref
 #define SIGFISH_SEC 0x008 //if secondaries are printed
+#define SIGFISH_REF 0x010 //map to the whole reference
 
 #define SECONDARY_CAP 5 //maximum number of secondary events to print
 
