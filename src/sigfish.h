@@ -28,9 +28,10 @@
 
 #define SIGFISH_RNA 0x001 //if RNA or not
 #define SIGFISH_DTW 0x002 //if dtw-std
-#define SIGFISH_INV 0x004 //if reverse events instead of ref
+#define SIGFISH_INV 0x004 //if set, reverse reference events instead of query events
 #define SIGFISH_SEC 0x008 //if secondaries are printed
 #define SIGFISH_REF 0x010 //map to the whole reference
+#define SIGFISH_END 0x020 //map the end of the query
 
 #define SECONDARY_CAP 5 //maximum number of secondary events to print
 

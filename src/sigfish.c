@@ -242,19 +242,17 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         // db->scalings[i] = estimate_scalings_using_mom(
         //     db->read[i], db->read_len[i], core->model, core->kmer_size, db->et[i]);
 
-        // if(core->opt.flag & SIGFISH_INV){ //Reversing the query to be 3' -> 5'
-        //     //fprintf(stderr,"Reversing the query to be 3' -> 5'\n");
-        //     //If sequencing RNA, reverse the events to be 3'->5'
-        //     if (rna){
-        //         event_t *events = db->et[i].event;
-        //         size_t n_events = db->et[i].n;
-        //         for (size_t i = 0; i < n_events/2; ++i) {
-        //             event_t tmp_event = events[i];
-        //             events[i]=events[n_events-1-i];
-        //             events[n_events-1-i]=tmp_event;
-        //         }
+        // //If sequencing RNA, reverse the events to be 3'->5'
+        // if (rna){
+        //     event_t *events = db->et[i].event;
+        //     size_t n_events = db->et[i].n;
+        //     for (size_t i = 0; i < n_events/2; ++i) {
+        //         event_t tmp_event = events[i];
+        //         events[i]=events[n_events-1-i];
+        //         events[n_events-1-i]=tmp_event;
         //     }
         // }
+  
 
     }
     else{
@@ -264,38 +262,44 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
-int from_sig_end=0;
+
 
 void normalise_single(core_t* core,db_t* db, int32_t i) {
+
 
     if(db->slow5_rec[i]->len_raw_signal>0){
 
         int64_t start_idx;
         int64_t end_idx;
+        int64_t n = db->et[i].n;
 
-        if(!from_sig_end){
+        int8_t from_sig_end= core->opt.flag & SIGFISH_END;
+
+
+        if(!from_sig_end){ //map query start
             start_idx =  core->opt.prefix_size;
             end_idx = start_idx+core->opt.query_size;
-            if (start_idx > db->et[i].n) {
+            if (start_idx > n) {
+                WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
                 start_idx = db->et[i].n;
                 db->et[i].n = 0;
-                WARNING("Read %s has only %ld events which is less than %d prefix",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
             }
-            if(end_idx > db->et[i].n){
+            if(end_idx > n){
+                WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
                 end_idx = db->et[i].n;
-                WARNING("Read %s has only %ld events which is less than %d prefix+query_size",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
             }
         }
-        else{
+        else{ //map query end
             start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
             end_idx = db->et[i].n - core->opt.prefix_size;
             if (start_idx < 0) {
-                db->et[i].n = 0;
-                WARNING("Read %s has only %ld events which is less than %d prefix",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+                WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+                start_idx = 0;
             }
             if(end_idx <0 ){
+                WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+                end_idx = 0;
                 db->et[i].n = 0;
-                WARNING("Read %s has only %ld events which is less than %d prefix+query_size",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
             }            
         }
 
@@ -303,20 +307,21 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
         float event_var = 0;
         float event_stdv = 0;
         float num_samples = end_idx-start_idx;
+        assert(num_samples >=0 );
 
         event_t *rawptr = db->et[i].event;
 
-        for(uint64_t j=start_idx; j<end_idx; j++){
+        for(int64_t j=start_idx; j<end_idx; j++){
             event_mean += rawptr[j].mean;
         }
         event_mean /= num_samples;
-        for(uint64_t j=start_idx; j<end_idx; j++){
+        for(int64_t j=start_idx; j<end_idx; j++){
             event_var += (rawptr[j].mean-event_mean)*(rawptr[j].mean-event_mean);
         }
         event_var /= num_samples;
         event_stdv = sqrt(event_var);
 
-        for(uint64_t j=start_idx; j<end_idx; j++){
+        for(int64_t j=start_idx; j<end_idx; j++){
             rawptr[j].mean = (rawptr[j].mean-event_mean)/event_stdv;
         }
     }
@@ -365,21 +370,32 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         aln_t *aln=init_aln();
 
-        int64_t start_idx =  core->opt.prefix_size;
-        int64_t end_idx = start_idx+core->opt.query_size;
+        int64_t start_idx;
+        int64_t end_idx;
+        int64_t n =  db->et[i].n;
 
-        if(from_sig_end){
-            start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
-            end_idx = db->et[i].n - core->opt.prefix_size;
+        int8_t from_sig_end= core->opt.flag & SIGFISH_END;
+        int32_t qlen;
+
+        if(!from_sig_end){ //map query start
+            start_idx =  core->opt.prefix_size;
+            end_idx = start_idx+core->opt.query_size;
+            qlen = end_idx > n ? n -start_idx : core->opt.query_size;
+        } 
+        else{  //map query end
+            start_idx = n - core->opt.prefix_size - core->opt.query_size;
+            end_idx = n - core->opt.prefix_size;
+            qlen = start_idx < 0 ? end_idx : core->opt.query_size;
+            assert(qlen>=0);
         }
 
         int8_t rna = core->opt.flag & SIGFISH_RNA;
-        int32_t qlen = end_idx > db->et[i].n ? db->et[i].n-start_idx : core->opt.query_size;
+        
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
 
         for(int j=0;j<qlen;j++){
-            if ((core->opt.flag & SIGFISH_INV) && rna){
+            if (!(core->opt.flag & SIGFISH_INV) && rna){
                 query[qlen-1-j] = db->et[i].event[j+start_idx].mean;
             }
             else{

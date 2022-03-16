@@ -187,7 +187,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
                 ref->reverse[i][j] = pore_model[kmer_rank].level_mean;
             }
         }else{ //rna
-            if(!(flag & SIGFISH_INV)){
+            if(flag & SIGFISH_INV){
                 fprintf(stderr,"Reversing the reference to be 5' -> 3'\n");
                 // char *f = seq->seq.s;
                 // char *reverse = (char *) malloc(strlen(f)*sizeof(char));
