@@ -91,7 +91,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
 
 
     //synthetic reference
-    core->ref = gen_ref(fastafile,core->model,kmer_size);
+    core->ref = gen_ref(fastafile,core->model,kmer_size,opt.flag, opt.query_size);
 
     core->opt = opt;
 
@@ -242,16 +242,17 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         // db->scalings[i] = estimate_scalings_using_mom(
         //     db->read[i], db->read_len[i], core->model, core->kmer_size, db->et[i]);
 
-        //If sequencing RNA, reverse the events to be 3'->5'
-        if (rna){
-            event_t *events = db->et[i].event;
-            size_t n_events = db->et[i].n;
-            for (size_t i = 0; i < n_events/2; ++i) {
-                event_t tmp_event = events[i];
-                events[i]=events[n_events-1-i];
-                events[n_events-1-i]=tmp_event;
-            }
-        }
+        // //If sequencing RNA, reverse the events to be 3'->5'
+        // if (rna){
+        //     event_t *events = db->et[i].event;
+        //     size_t n_events = db->et[i].n;
+        //     for (size_t i = 0; i < n_events/2; ++i) {
+        //         event_t tmp_event = events[i];
+        //         events[i]=events[n_events-1-i];
+        //         events[n_events-1-i]=tmp_event;
+        //     }
+        // }
+  
 
     }
     else{
@@ -261,62 +262,145 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
+
+
 void normalise_single(core_t* core,db_t* db, int32_t i) {
+
 
     if(db->slow5_rec[i]->len_raw_signal>0){
 
-        uint64_t start_idx =  core->opt.prefix_size;
-        uint64_t end_idx = core->opt.prefix_size+core->opt.query_size;
+        int64_t start_idx;
+        int64_t end_idx;
+        int64_t n = db->et[i].n;
 
-        if (start_idx > db->et[i].n) {
-            start_idx = db->et[i].n;
-            WARNING("Read %s has only %ld events which is less than %d prefix\n",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+        int8_t from_sig_end= core->opt.flag & SIGFISH_END;
+
+
+        if(!from_sig_end){ //map query start
+            start_idx =  core->opt.prefix_size;
+            end_idx = start_idx+core->opt.query_size;
+            if (start_idx > n) {
+                WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+                start_idx = db->et[i].n;
+                db->et[i].n = 0;
+            }
+            if(end_idx > n){
+                WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+                end_idx = db->et[i].n;
+            }
         }
-        if(end_idx > db->et[i].n){
-            end_idx = db->et[i].n;
-            WARNING("Read %s has only %ld events which is less than %d prefix+query_size\n",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+        else{ //map query end
+            start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
+            end_idx = db->et[i].n - core->opt.prefix_size;
+            if (start_idx < 0) {
+                WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+                start_idx = 0;
+            }
+            if(end_idx <0 ){
+                WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+                end_idx = 0;
+                db->et[i].n = 0;
+            }            
         }
 
         float event_mean = 0;
         float event_var = 0;
         float event_stdv = 0;
         float num_samples = end_idx-start_idx;
+        assert(num_samples >=0 );
 
         event_t *rawptr = db->et[i].event;
 
-        for(uint64_t j=start_idx; j<end_idx; j++){
+        for(int64_t j=start_idx; j<end_idx; j++){
             event_mean += rawptr[j].mean;
         }
         event_mean /= num_samples;
-        for(uint64_t j=start_idx; j<end_idx; j++){
+        for(int64_t j=start_idx; j<end_idx; j++){
             event_var += (rawptr[j].mean-event_mean)*(rawptr[j].mean-event_mean);
         }
         event_var /= num_samples;
         event_stdv = sqrt(event_var);
 
-        for(uint64_t j=start_idx; j<end_idx; j++){
+        for(int64_t j=start_idx; j<end_idx; j++){
             rawptr[j].mean = (rawptr[j].mean-event_mean)/event_stdv;
         }
     }
 
 }
 
+aln_t *init_aln(){
+    aln_t *aln = (aln_t *)malloc(sizeof(aln_t)*SECONDARY_CAP);
+    MALLOC_CHK(aln);
+    float score = INFINITY;
+    float score2 = INFINITY;
+    int32_t pos = -1;
+    int32_t rid = -1;
+    char d = 0;
+    for (int l=0; l<SECONDARY_CAP;l++) aln[l] = {rid,pos,score,score2,d,0};
+
+    return aln;
+}
+
+void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d){
+    int l=0;
+    for(; l<SECONDARY_CAP; l++){
+        if (score > aln[l].score){
+            break;
+        } else {
+            continue;
+        }
+    }
+
+    if(l!=0){
+        for(int m=0;m<l-1;m++){
+            aln[m] = aln[m+1];
+        }
+        aln[l-1].score = score;
+        aln[l-1].pos = pos;
+        aln[l-1].rid = rid;
+        aln[l-1].d = d;
+    }
+
+}
+
+
 void dtw_single(core_t* core,db_t* db, int32_t i) {
 
-    if(db->slow5_rec[i]->len_raw_signal>0){
+    if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
-        float score = INFINITY;
-        int32_t pos = 0;
-        int32_t rid = -1;
-        char d = 0;
+        aln_t *aln=init_aln();
+
+        int64_t start_idx;
+        int64_t end_idx;
+        int64_t n =  db->et[i].n;
+
+        int8_t from_sig_end= core->opt.flag & SIGFISH_END;
+        int32_t qlen;
+
+        if(!from_sig_end){ //map query start
+            start_idx =  core->opt.prefix_size;
+            end_idx = start_idx+core->opt.query_size;
+            qlen = end_idx > n ? n -start_idx : core->opt.query_size;
+        } 
+        else{  //map query end
+            start_idx = n - core->opt.prefix_size - core->opt.query_size;
+            end_idx = n - core->opt.prefix_size;
+            qlen = start_idx < 0 ? end_idx : core->opt.query_size;
+            assert(qlen>=0);
+        }
+
         int8_t rna = core->opt.flag & SIGFISH_RNA;
-
-        int32_t qlen =core->opt.query_size;
+        
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
 
         for(int j=0;j<qlen;j++){
-            query[j] = db->et[i].event[j+core->opt.prefix_size].mean;
+            if (!(core->opt.flag & SIGFISH_INV) && rna){
+                query[qlen-1-j] = db->et[i].event[j+start_idx].mean;
+            }
+            else{
+                query[j] = db->et[i].event[j+start_idx].mean;
+            }
         }
 
         //fprintf(stderr,"numref %d\n",core->ref->num_ref)    ;
@@ -328,7 +412,42 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
             //fprintf(stderr,"%d,%d\n",qlen,rlen);
 
-            subsequence(query, core->ref->forward[j], qlen , rlen, cost);
+            if(!(core->opt.flag & SIGFISH_DTW)){
+                // fprintf(stderr,"query: ");
+                // for(int k=0;k<qlen;k++){
+                //     fprintf(stderr,"%f,",query[k]);
+                // }
+                //                 fprintf(stderr,"\n");
+                // fprintf(stderr,"Ref: ");
+
+                // for(int k=0;k<rlen;k++){
+                //     fprintf(stderr,"%f,",core->ref->forward[j][k]);
+                // }
+                // fprintf(stderr,"\n\n");
+                subsequence(query, core->ref->forward[j], qlen , rlen, cost);
+                for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
+                    update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+');
+                    // if(cost[k]<score){
+                    //     score2=score;
+                    //     score = cost[k];
+                    //     pos = k-(qlen-1)*rlen;
+                    //     rid = j;
+                    //     d = '+';
+                    // }
+                }
+            }
+            else{
+                std_dtw(query, core->ref->forward[j], qlen , rlen, cost, 0);
+                int k=qlen*rlen-1;
+                update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+');
+                // if(cost[k]<score){
+                //     score2=score;
+                //     score = cost[k];
+                //     pos = k-(qlen-1)*rlen;
+                //     rid = j;
+                //     d = '+';
+                // }
+            }
             // for(int k=0;k<qlen;k++){
             //     for(int l=0;l<rlen;l++){
             //         fprintf(stderr,"%f,",cost[k*rlen+l]);
@@ -337,24 +456,18 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             // }
             // fprintf(stderr,"\n");
             // exit(0);
-            for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                if(cost[k]<score){
-                    score = cost[k];
-                    pos = k-(qlen-1)*rlen;
-                    rid = j;
-                    d = '+';
-                }
-            }
 
             if (!rna) {
-                subsequence(query, core->ref->reverse[j], core->opt.query_size , core->ref->ref_lengths[j], cost);
+                subsequence(query, core->ref->reverse[j], qlen , rlen, cost);
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
-                    if(cost[k]<score){
-                        score = cost[k];
-                        pos = k-(qlen-1)*rlen;
-                        rid = j;
-                        d = '-';
-                    }
+                    update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '-');
+                    // if(cost[k]<score){
+                    //     score2=score;
+                    //     score = cost[k];
+                    //     pos = k-(qlen-1)*rlen;
+                    //     rid = j;
+                    //     d = '-';
+                    // }
                 }
             }
 
@@ -364,11 +477,20 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         free(query);
 
-        db->aln[i].score = score;
-        db->aln[i].pos = d == '+' ? pos : core->ref->ref_lengths[rid] - pos ;
-        db->aln[i].rid = rid;
-        db->aln[i].d = d;
 
+        db->aln[i].score = aln[SECONDARY_CAP-1].score;
+        db->aln[i].score2 = aln[SECONDARY_CAP-2].score;
+        db->aln[i].pos = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos : core->ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos  ;
+        db->aln[i].rid = aln[SECONDARY_CAP-1].rid;
+        db->aln[i].d = aln[SECONDARY_CAP-1].d;
+
+        int mapq=(int)round(-10*log10(1-(db->aln[i].score2-db->aln[i].score)/db->aln[i].score2)*100);
+        if(mapq>60){
+            mapq=60;
+        }
+        db->aln[i].mapq = mapq;
+
+        free(aln);
     }
 
 }
@@ -407,20 +529,26 @@ void output_db(core_t* core, db_t* db) {
         // }
         // printf("\n");
 
+        if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
+            // Output of results
+            uint64_t start_idx =  core->opt.prefix_size;
+            printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
+            printf("%d\t%ld\t%ld\t", core->opt.query_size , start_idx,core->opt.query_size+start_idx); // Query sequence length, start, end
+            printf("%c\t",db->aln[i].d); // Direction
+            printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
 
-        // Output of results
-        printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
-        printf("%d\t%d\t%d\t", core->opt.query_size , core->opt.prefix_size,core->opt.query_size+core->opt.prefix_size); // Query sequence length, start, end
-        printf("%c\t",db->aln[i].d); // Direction
-        printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
-        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Target sequence length
 
-
-        printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
-        printf("%d\t",db->aln[i].pos); // Target end
-        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); // Number of residues
-        printf("%d\t",core->ref->ref_lengths[db->aln[i].rid]+core->kmer_size-1); //  Alignment block length
-        printf("%d\n",60); // Mapq //todo
+            printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
+            printf("%d\t",db->aln[i].pos); // Target end
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Number of residues //todo check this
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); //  Alignment block length //todo check this
+            printf("%d\t",db->aln[i].mapq); // Mapq //todo
+            printf("tp:A:P\t");
+            printf("d1:f:%f\t",db->aln[i].score); // Mapq //todo
+            printf("d2:f:%f\n",db->aln[i].score2); // Mapq //todo
+            //printf("%f\n",db->aln[i].score); // Mapq //todo
+        }
 
     }
 

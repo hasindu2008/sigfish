@@ -25,7 +25,7 @@ uint32_t set_model(model_t* model, uint32_t model_id);
 
 event_table getevents(size_t nsample, float* rawptr, int8_t rna);
 
-refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size);
+refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size, uint32_t rna, int32_t query_size);
 void free_ref(refsynth_t *ref);
 
 // taken from minimap2/misc

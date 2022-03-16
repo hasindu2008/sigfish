@@ -22,14 +22,18 @@
 #define MODEL_ID_DNA_NUCLEOTIDE 1
 #define MODEL_ID_RNA_NUCLEOTIDE 2
 
-
-
 /*******************************************************
  * flags related to the user specified options (opt_t) *
  *******************************************************/
 
 #define SIGFISH_RNA 0x001 //if RNA or not
+#define SIGFISH_DTW 0x002 //if dtw-std
+#define SIGFISH_INV 0x004 //if set, reverse reference events instead of query events
+#define SIGFISH_SEC 0x008 //if secondaries are printed
+#define SIGFISH_REF 0x010 //map to the whole reference
+#define SIGFISH_END 0x020 //map the end of the query
 
+#define SECONDARY_CAP 5 //maximum number of secondary events to print
 
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
@@ -72,6 +76,7 @@ typedef struct {
     int32_t num_ref;
     char **ref_names;
     int32_t *ref_lengths;
+    int32_t *ref_seq_lengths;
 
     float **forward;
     float **reverse;
@@ -119,7 +124,9 @@ typedef struct {
     int32_t rid;
     int32_t pos;
     float score;
+    float score2;
     char d;
+    uint8_t mapq;
 } aln_t;
 
 /* a batch of read data (dynamic data based on the reads) */

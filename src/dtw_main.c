@@ -31,6 +31,12 @@ static struct option long_options[] = {
     {"rna",no_argument,0,0},                       //12 if RNA (eventalign only)
     {"prefix",required_argument,0,'b'},            //13
     {"query-size",required_argument,0,'q'},        //14
+    {"debug-break",required_argument, 0, 0},       //15 break after processing the first batch (used for debugging)
+    {"dtw-std", no_argument, 0, 0},                //16 Use standard DTW instead of subsequence dtw
+    {"invert", no_argument, 0, 0},                 //17 Reverse the reference instead of query
+    {"secondary", required_argument, 0, 0},        //18 Print secondary mappings or not
+    {"full-ref", no_argument, 0, 0},               //19 Map to full reference instead of a segment
+    {"from-end", no_argument, 0, 0},               //20 Map the end portion of the query
     {0, 0, 0, 0}};
 
 
@@ -154,9 +160,35 @@ int dtw_main(int argc, char* argv[]) {
 			}
         } else if (c == 0 && longindex == 12){ //if RNA
             yes_or_no(&opt, SIGFISH_RNA, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 15){ //debug break
+            opt.debug_break = atoi(optarg);
+        } else if(c == 0 && longindex == 16){ //dtw variant
+            yes_or_no(&opt, SIGFISH_DTW, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 17){ //reverse the reference instead of query
+            yes_or_no(&opt, SIGFISH_INV, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 18){ //secondary mappings
+            yes_or_no(&opt, SIGFISH_SEC, longindex, optarg, 1);
+        } else if(c == 0 && longindex == 19){ //use full reference
+            yes_or_no(&opt, SIGFISH_REF, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 20){ //map query end
+            yes_or_no(&opt, SIGFISH_END, longindex, "yes", 1);
         }
     }
 
+    if (!(opt.flag & SIGFISH_RNA)){ //dna
+        if(opt.flag & SIGFISH_DTW){
+            ERROR("%s","DTW is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+        if(opt.flag & SIGFISH_INV){
+            ERROR("%s","Inversion is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+        if(opt.flag & SIGFISH_REF){
+            ERROR("%s","--full-ref is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     if (slow5file == NULL || fastafile == NULL || fp_help == stdout) {
         fprintf(fp_help,"Usage: sigfish [OPTIONS] -s reads.slow5 -g genome.fa\n");
@@ -177,6 +209,13 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
         fprintf(fp_help,"   -q INT                     the number of events in query signal to align\n");
         fprintf(fp_help,"   -b INT                     the number of events to trim at query signal start\n");
+        fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
+        fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
+        fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
+        fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no.\n");
+        fprintf(fp_help,"   --full-ref                 map to the full reference.\n");
+        fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning.\n");
+
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
