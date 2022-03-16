@@ -242,19 +242,19 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         // db->scalings[i] = estimate_scalings_using_mom(
         //     db->read[i], db->read_len[i], core->model, core->kmer_size, db->et[i]);
 
-    if(core->opt.flag & SIGFISH_INV){ //Reversing the query to be 3' -> 5'
-        //fprintf(stderr,"Reversing the query to be 3' -> 5'\n");
-        //If sequencing RNA, reverse the events to be 3'->5'
-        if (rna){
-            event_t *events = db->et[i].event;
-            size_t n_events = db->et[i].n;
-            for (size_t i = 0; i < n_events/2; ++i) {
-                event_t tmp_event = events[i];
-                events[i]=events[n_events-1-i];
-                events[n_events-1-i]=tmp_event;
-            }
-        }
-    }
+        // if(core->opt.flag & SIGFISH_INV){ //Reversing the query to be 3' -> 5'
+        //     //fprintf(stderr,"Reversing the query to be 3' -> 5'\n");
+        //     //If sequencing RNA, reverse the events to be 3'->5'
+        //     if (rna){
+        //         event_t *events = db->et[i].event;
+        //         size_t n_events = db->et[i].n;
+        //         for (size_t i = 0; i < n_events/2; ++i) {
+        //             event_t tmp_event = events[i];
+        //             events[i]=events[n_events-1-i];
+        //             events[n_events-1-i]=tmp_event;
+        //         }
+        //     }
+        // }
 
     }
     else{
@@ -264,21 +264,39 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
+int from_sig_end=0;
+
 void normalise_single(core_t* core,db_t* db, int32_t i) {
 
     if(db->slow5_rec[i]->len_raw_signal>0){
 
-        uint64_t start_idx =  core->opt.prefix_size;
-        uint64_t end_idx = core->opt.prefix_size+core->opt.query_size;
+        int64_t start_idx;
+        int64_t end_idx;
 
-        if (start_idx > db->et[i].n) {
-            start_idx = db->et[i].n;
-            db->et[i].n = 0;
-            WARNING("Read %s has only %ld events which is less than %d prefix",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+        if(!from_sig_end){
+            start_idx =  core->opt.prefix_size;
+            end_idx = start_idx+core->opt.query_size;
+            if (start_idx > db->et[i].n) {
+                start_idx = db->et[i].n;
+                db->et[i].n = 0;
+                WARNING("Read %s has only %ld events which is less than %d prefix",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+            }
+            if(end_idx > db->et[i].n){
+                end_idx = db->et[i].n;
+                WARNING("Read %s has only %ld events which is less than %d prefix+query_size",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+            }
         }
-        if(end_idx > db->et[i].n){
-            end_idx = db->et[i].n;
-            WARNING("Read %s has only %ld events which is less than %d prefix+query_size",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+        else{
+            start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
+            end_idx = db->et[i].n - core->opt.prefix_size;
+            if (start_idx < 0) {
+                db->et[i].n = 0;
+                WARNING("Read %s has only %ld events which is less than %d prefix",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+            }
+            if(end_idx <0 ){
+                db->et[i].n = 0;
+                WARNING("Read %s has only %ld events which is less than %d prefix+query_size",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+            }            
         }
 
         float event_mean = 0;
@@ -345,17 +363,28 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
     if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
-
-
         aln_t *aln=init_aln();
 
+        int64_t start_idx =  core->opt.prefix_size;
+        int64_t end_idx = start_idx+core->opt.query_size;
+
+        if(from_sig_end){
+            start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
+            end_idx = db->et[i].n - core->opt.prefix_size;
+        }
+
         int8_t rna = core->opt.flag & SIGFISH_RNA;
-        int32_t qlen = core->opt.prefix_size+core->opt.query_size > (int32_t)db->et[i].n ? db->et[i].n-core->opt.prefix_size : core->opt.query_size;
+        int32_t qlen = end_idx > db->et[i].n ? db->et[i].n-start_idx : core->opt.query_size;
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
 
         for(int j=0;j<qlen;j++){
-            query[j] = db->et[i].event[j+core->opt.prefix_size].mean;
+            if ((core->opt.flag & SIGFISH_INV) && rna){
+                query[qlen-1-j] = db->et[i].event[j+start_idx].mean;
+            }
+            else{
+                query[j] = db->et[i].event[j+start_idx].mean;
+            }
         }
 
         //fprintf(stderr,"numref %d\n",core->ref->num_ref)    ;
@@ -486,8 +515,9 @@ void output_db(core_t* core, db_t* db) {
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
             // Output of results
+            uint64_t start_idx =  core->opt.prefix_size;
             printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
-            printf("%d\t%d\t%d\t", core->opt.query_size , core->opt.prefix_size,core->opt.query_size+core->opt.prefix_size); // Query sequence length, start, end
+            printf("%d\t%ld\t%ld\t", core->opt.query_size , start_idx,core->opt.query_size+start_idx); // Query sequence length, start, end
             printf("%c\t",db->aln[i].d); // Direction
             printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
