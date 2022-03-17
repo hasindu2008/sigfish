@@ -19,6 +19,7 @@ OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/model.o \
       $(BUILD_DIR)/cdtw.o \
 	  $(BUILD_DIR)/genref.o \
+	  $(BUILD_DIR)/events_main.o \
 
 PREFIX = /usr/local
 VERSION = `git describe --tags`
@@ -56,6 +57,10 @@ $(BUILD_DIR)/cdtw.o: src/cdtw.c src/cdtw.h
 
 $(BUILD_DIR)/genref.o: src/genref.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
+$(BUILD_DIR)/events_main.o: src/events_main.c
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
 
 slow5lib/lib/libslow5.a:
 	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local)  lib/libslow5.a

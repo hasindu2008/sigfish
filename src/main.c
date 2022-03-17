@@ -39,12 +39,14 @@ void sig_handler(int sig) {
 }
 
 int dtw_main(int argc, char* argv[]);
+int events_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
     fprintf(fp_help,"Usage: sigfish <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
     fprintf(fp_help,"         dtw              	\n");
+    fprintf(fp_help,"         events              	\n");
     if(fp_help==stderr){
         exit(EXIT_FAILURE);
     }
@@ -70,6 +72,9 @@ int main(int argc, char* argv[]){
     }
     if(strcmp(argv[1],"dtw")==0){
         ret=dtw_main(argc-1, argv+1);
+    }
+    else if (strcmp(argv[1],"events")==0){
+        ret=events_main(argc-1, argv+1);
     }
     else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);
