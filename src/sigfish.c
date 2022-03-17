@@ -307,7 +307,6 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
         float event_var = 0;
         float event_stdv = 0;
         float num_samples = end_idx-start_idx;
-        assert(num_samples >=0 );
 
         event_t *rawptr = db->et[i].event;
 
