@@ -155,6 +155,37 @@ static inline char **read_bed_regions(char *bedfile, int64_t *count){
     return reg_list;
 }
 
+static inline float *signal_in_picoamps(slow5_rec_t *rec){
+    int16_t* rawptr = rec->raw_signal;
+    float range = rec->range;
+    float digitisation = rec->digitisation;
+    float offset = rec->offset;
+    int32_t nsample = rec->len_raw_signal;
 
+    // convert to pA
+    float *current_signal = (float*)malloc(sizeof(float) * nsample);
+    MALLOC_CHK(current_signal);
+
+    float raw_unit = range / digitisation;
+    for (int32_t j = 0; j < nsample; j++) {
+        current_signal[j] = ((float)rawptr[j] + offset) * raw_unit;
+    }
+
+    return current_signal;
+}
+
+#define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
+
+#define SIGFISH_MEAN_VAL 104.6
+#define SIGFISH_STDV_VAL 20.39
+#define SIGFISH_WINDOW_SIZE 2000
+#define SIGFISH_SIZE 1000
+
+typedef struct {
+    int x;
+    int y;
+} pair_t;
+
+pair_t trim(float *current, int32_t nsample);
 
 #endif

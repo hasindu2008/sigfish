@@ -11,6 +11,6 @@ avg=zeros(length(a),1);
 for j=1:length(startidx)
     avg(startidx(j):endidx(j))=mean(a(startidx(j):endidx(j)));
 end
-plot(a); hold on; plot(avg); savefig('$1.fig') 
+plot(a); hold on; plot(avg); savefig('$1.fig'); hold off; plot(b(:,3)); savefig('$1.events.fig');
 "
 
