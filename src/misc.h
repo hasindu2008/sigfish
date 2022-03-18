@@ -186,6 +186,6 @@ typedef struct {
     int y;
 } pair_t;
 
-pair_t trim(float *current, int32_t nsample);
+
 
 #endif

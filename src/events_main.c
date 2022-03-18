@@ -99,7 +99,7 @@ int events_main(int argc, char* argv[]) {
 
         float *current_signal = signal_in_picoamps(rec);
 
-        trim(current_signal, rec->len_raw_signal);
+        //trim(current_signal, rec->len_raw_signal);
 
         event_table et = getevents(rec->len_raw_signal, current_signal, rna);
         print_events(read_id,et);
