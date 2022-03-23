@@ -11,6 +11,7 @@ MY_PAF=test/test.paf
 
 make
 ./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --full-ref --from-end -q 500 > ${MY_PAF}
+#./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --full-ref -q 500 -b 500 > ${MY_PAF}
 
 source ${HARU_VENV}/bin/activate
 uncalled pafstats -r ${REF_PAF} ${MY_PAF}

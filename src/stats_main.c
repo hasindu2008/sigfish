@@ -36,7 +36,7 @@ float mean(float *x, int n) {
 float stdv(float *x, int n) {
     float sum = 0;
     int i = 0;
-    float m = mean(x, n);
+    float m = mean(x, n); //can reuse already calculated mean
     for (i = 0; i < n; i++) {
         sum += (x[i] - m) * (x[i] - m);
     }
@@ -51,7 +51,7 @@ float *rolling_window(float *x, int n, int w) {
 
     float *t = (float*)malloc(sizeof(float)*(n-w));
     MALLOC_CHK(t);        
-    for(int i=0; i<n-w; i++){
+    for(int i=0; i<n-w; i++){ //can remove later with a single var that inits to 0
         t[i] = 0.0;
     }
 
@@ -61,6 +61,11 @@ float *rolling_window(float *x, int n, int w) {
         }
         t[i]/=w;
     }
+
+    // for(int i=0; i<n-w; i++){ //can remove later with a single var that inits to 0
+    //     fprintf(stderr,"%f\t",t[i]);
+    // }
+    // fprintf(stderr,"\n");
 
     return t;
 }
@@ -87,7 +92,6 @@ float *rm_outlier(int16_t *x, int n) {
 
 pair_t trim(slow5_rec_t *rec){
 
-
     int64_t nsample = rec->len_raw_signal;
 
     if(nsample > SIGFISH_WINDOW_SIZE){
@@ -113,24 +117,6 @@ pair_t trim(slow5_rec_t *rec){
         int seg_i = 0;
 
         int count = -1;
-
-        // float *t = (float*)malloc(sizeof(float) * (nsample-SIGFISH_WINDOW_SIZE));
-        // MALLOC_CHK(t);        
-        // for(int i=0; i<nsample-SIGFISH_WINDOW_SIZE; i++){
-        //     t[i] = 0;
-        // }
-
-        // for(int i=0;i<nsample-SIGFISH_WINDOW_SIZE;i++){
-        //     for(int j=0;j<SIGFISH_WINDOW_SIZE;j++){
-        //         t[i] += current[i+j];
-        //     }
-        //     t[i]/=SIGFISH_WINDOW_SIZE;
-        // }
-        // for(int i=0; i<nsample-SIGFISH_WINDOW_SIZE; i++){
-        //     fprintf(stderr,"%f\t",t[i]);
-        // }
-        // fprintf(stderr,"\n");
-
 
         for (int j=0; j<nsample-SIGFISH_WINDOW_SIZE; j++){
             float i = t[j];
@@ -165,7 +151,7 @@ pair_t trim(slow5_rec_t *rec){
             if (b - a < lo_thresh){
                 continue;
             }
-            p = {a, b};
+            p = {a+SIGFISH_WINDOW_SIZE/2-1, b+SIGFISH_WINDOW_SIZE/2-1};
             //fprintf(stderr,"FF %d\t%d\n",p.x, p.y);
             break;
         }
@@ -174,12 +160,10 @@ pair_t trim(slow5_rec_t *rec){
         return p;   
     }
     else{
-        fprintf(stderr,"Not enough data to trim\n");
+        WARNING("%s","Not enough data to trim\n");
         pair_t p = {-1,-1};
         return p;
     }
-
-    
 
 }
 
