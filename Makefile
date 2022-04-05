@@ -19,8 +19,8 @@ OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/model.o \
       $(BUILD_DIR)/cdtw.o \
 	  $(BUILD_DIR)/genref.o \
-	  $(BUILD_DIR)/events_main.o \
-	  $(BUILD_DIR)/stats_main.o \
+	  $(BUILD_DIR)/cmain.o \
+	  $(BUILD_DIR)/cbody.o \
 	  $(BUILD_DIR)/misc.o
 
 PREFIX = /usr/local
@@ -60,10 +60,10 @@ $(BUILD_DIR)/cdtw.o: src/cdtw.c src/cdtw.h
 $(BUILD_DIR)/genref.o: src/genref.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
-$(BUILD_DIR)/events_main.o: src/events_main.c
+$(BUILD_DIR)/cmain.o: src/cmain.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
-$(BUILD_DIR)/stats_main.o: src/stats_main.c
+$(BUILD_DIR)/cbody.o: src/cbody.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
 $(BUILD_DIR)/misc.o: src/misc.c

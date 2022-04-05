@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 
-
 static struct option long_options[] = {
     {"verbose", required_argument, 0, 'v'},        //0 verbosity level [1]
     {"help", no_argument, 0, 'h'},                 //1
@@ -23,23 +22,11 @@ static struct option long_options[] = {
     {"rna",no_argument,0,0},                       //4 if RNA
     {0, 0, 0, 0}};
 
+void event_func(slow5_rec_t *rec, int8_t rna);
+void stat_func(slow5_rec_t *rec, int8_t rna);
+void seg_func(slow5_rec_t *rec, int8_t rna);
 
-
-
-void print_events(char *rid, event_table et){
-
-    printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");
-    uint32_t j = 0;
-    for (j = 0; j < et.n; j++) {
-        printf("%s\t%d\t%ld\t%d\t%f\t%f\n", rid, j, et.event[j].start,
-                (int)et.event[j].length, et.event[j].mean,
-                et.event[j].stdv);
-    }
-    printf("\n");
-     
-}
-
-int events_main(int argc, char* argv[]) {
+int cmain(int argc, char* argv[], char *mode) {
 
     const char* optstring = "o:hV";
 
@@ -62,8 +49,9 @@ int events_main(int argc, char* argv[]) {
     }
 
 
-    if (argc-optind<2 ||  fp_help == stdout) {
-        fprintf(fp_help,"Usage: sigfish events reads.slow5 read_id1 .. \n");
+    if (argc-optind<1 ||  fp_help == stdout) {
+        fprintf(fp_help,"Usage: sigfish %s reads.blow5 read_id1 read_id2 .. \n", mode);
+        fprintf(fp_help,"       sigfish %s reads.blow5\n", mode);
         fprintf(fp_help,"\nbasic options:\n");
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   --version                  print version\n");
@@ -79,39 +67,63 @@ int events_main(int argc, char* argv[]) {
         ERROR("cannot open %s. \n", argv[optind]);
         exit(EXIT_FAILURE);
     }
+    slow5_rec_t *rec = NULL;
+    int ret=0;
 
-    int ret_idx = slow5_idx_load(slow5file);
-    if (ret_idx < 0) {
-        ERROR("Error loading index file for %s\n", argv[optind]);
+    void (*func)(slow5_rec_t*, int8_t) = NULL;
+
+    if (strcmp(mode,"events") == 0){
+        printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");
+        func = event_func;
+    }
+    else if (strcmp(mode,"stats") == 0){
+        printf("read_id\tnsample\tmean\tstd\tw_mean\tw_std\tadapt_st\tadap_end\n");
+        func = stat_func;
+    }
+    else if (strcmp(mode,"seg") == 0){
+        func = seg_func;
+    } else {
+        ERROR("unknown mode %s\n", mode);
         exit(EXIT_FAILURE);
     }
+    
+    if(argc-optind == 1){
+        while((ret = slow5_get_next(&rec,slow5file)) >= 0){
+           func(rec,rna);
+        }
 
-    slow5_rec_t *rec = NULL;
+        if(ret != SLOW5_ERR_EOF){  //check if proper end of file has been reached
+            fprintf(stderr,"Error in slow5_get_next. Error code %d\n",ret);
+            exit(EXIT_FAILURE);
+        }
+    }
+    else{
 
-    for(int i=optind+1 ; i<argc ;i++){
-        char *read_id = argv[i];
-        fprintf(stderr,"Read ID %s\n",read_id);
-        int ret = slow5_get(read_id, &rec, slow5file);
-        if(ret < 0){
-            ERROR("%s","Error when fetching the read\n");
+        int ret_idx = slow5_idx_load(slow5file);
+        if (ret_idx < 0) {
+            ERROR("Error loading index file for %s\n", argv[optind]);
             exit(EXIT_FAILURE);
         }
 
-        float *current_signal = signal_in_picoamps(rec);
+        for(int i=optind+1 ; i<argc ;i++){
+            char *read_id = argv[i];
+            fprintf(stderr,"Read ID %s\n",read_id);
+            int ret = slow5_get(read_id, &rec, slow5file);
+            if(ret < 0){
+                ERROR("%s","Error when fetching the read\n");
+                exit(EXIT_FAILURE);
+            }
 
-        //trim(current_signal, rec->len_raw_signal);
+            func(rec,rna);
 
-        event_table et = getevents(rec->len_raw_signal, current_signal, rna);
-        print_events(read_id,et);
-        
-        free(current_signal);
-        free(et.event);
+        }
+
+        slow5_idx_unload(slow5file);
 
     }
 
     slow5_rec_free(rec);   
-    slow5_idx_unload(slow5file);
-    slow5_close(slow5file);
+    slow5_close(slow5file);    
 
     return 0;
 }

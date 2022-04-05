@@ -39,8 +39,7 @@ void sig_handler(int sig) {
 }
 
 int dtw_main(int argc, char* argv[]);
-int events_main(int argc, char* argv[]);
-int stats_main(int argc, char* argv[]);
+int cmain(int argc, char* argv[], char *mode);
 
 int print_usage(FILE *fp_help){
 
@@ -75,12 +74,9 @@ int main(int argc, char* argv[]){
     if(strcmp(argv[1],"dtw")==0){
         ret=dtw_main(argc-1, argv+1);
     }
-    else if (strcmp(argv[1],"events")==0){
-        ret=events_main(argc-1, argv+1);
-    }
-    else if (strcmp(argv[1],"stats")==0){
-        ret=stats_main(argc-1, argv+1);
-    }    
+    else if (strcmp(argv[1],"events")==0 || strcmp(argv[1],"stats") || strcmp(argv[1],"seg")==0){
+        ret=cmain(argc-1, argv+1, argv[1]);
+    }  
     else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);
         exit(EXIT_SUCCESS);
