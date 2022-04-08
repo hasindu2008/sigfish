@@ -20,7 +20,7 @@ OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/cdtw.o \
 	  $(BUILD_DIR)/genref.o \
 	  $(BUILD_DIR)/cmain.o \
-	  $(BUILD_DIR)/cbody.o \
+	  $(BUILD_DIR)/cfunc.o \
 	  $(BUILD_DIR)/misc.o
 
 PREFIX = /usr/local
@@ -63,7 +63,7 @@ $(BUILD_DIR)/genref.o: src/genref.c
 $(BUILD_DIR)/cmain.o: src/cmain.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
-$(BUILD_DIR)/cbody.o: src/cbody.c
+$(BUILD_DIR)/cfunc.o: src/cfunc.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
 $(BUILD_DIR)/misc.o: src/misc.c
