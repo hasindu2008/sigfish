@@ -39,7 +39,9 @@ void sig_handler(int sig) {
 }
 
 int dtw_main(int argc, char* argv[]);
+int eval_main(int argc, char* argv[]);
 int cmain(int argc, char* argv[], char *mode);
+
 
 int print_usage(FILE *fp_help){
 
@@ -73,6 +75,9 @@ int main(int argc, char* argv[]){
     }
     if(strcmp(argv[1],"dtw")==0){
         ret=dtw_main(argc-1, argv+1);
+    }
+    else if (strcmp(argv[1],"eval")==0){
+        ret = eval_main(argc-1, argv+1);
     }
     else if (strcmp(argv[1],"event")==0 || strcmp(argv[1],"stat")==0 || strcmp(argv[1],"seg")==0 || strcmp(argv[1],"pa")==0){
         ret=cmain(argc-1, argv+1, argv[1]);
