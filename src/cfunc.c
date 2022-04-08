@@ -194,7 +194,7 @@ float *rm_outlierf(float *x, int n) {
 
 //adapted from
 //https://github.com/Psy-Fer/deeplexicon/blob/master/scripts/dRNA_segmenter.py
-pair_t adaptor(slow5_rec_t *rec){
+pair_t find_adaptor(slow5_rec_t *rec){
 
     int64_t nsample = rec->len_raw_signal;
 
@@ -515,7 +515,7 @@ void seg_hdr(){
 void seg_func(slow5_rec_t *rec, int8_t rna){
     int64_t len_raw_signal = rec->len_raw_signal;
     printf("%s\t%ld\t",rec->read_id, len_raw_signal);
-    pair_t p=adaptor(rec);
+    pair_t p=find_adaptor(rec);
     if(p.y > 0){
         assert(p.y<len_raw_signal);
         printf("%ld\t%ld\t",p.x, p.y);

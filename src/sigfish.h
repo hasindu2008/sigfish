@@ -145,6 +145,10 @@ typedef struct {
     //event table
     event_table* et;
 
+    //qstart and qend
+    int64_t *qstart;
+    int64_t *qend;
+
     //scaling
     scalings_t* scalings;
 

@@ -152,6 +152,12 @@ db_t* init_db(core_t* core) {
     db->aln = (aln_t *)malloc(sizeof(aln_t) * db->capacity_rec);
     MALLOC_CHK(db->et);
 
+    db->qstart = (int64_t *)malloc(sizeof(int64_t) * db->capacity_rec);
+    MALLOC_CHK(db->qstart);
+
+    db->qend = (int64_t *)malloc(sizeof(int64_t) * db->capacity_rec);
+    MALLOC_CHK(db->qend);
+
     db->total_reads=0;
 
 
@@ -262,12 +268,48 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
+int64_t detect_query_start(slow5_rec_t *rec, event_table et){
+    int64_t start = -1;
+    pair_t p=find_adaptor(rec);
+    int64_t len_raw_signal = rec->len_raw_signal;
+    if(p.y > 0){
+        assert(p.y<len_raw_signal);
 
+        float *current = signal_in_picoamps(rec);
+        float m_a = meanf(&current[p.x],p.y-p.x);
+        // float s_a = stdvf(&current[p.x],p.y-p.x);
+        // float k_a = medianf(&current[p.x],p.y-p.x);
+
+        assert(p.y > 0);
+        assert(p.y < len_raw_signal);
+
+        float *adapt_end = &current[p.y];
+        pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
+
+        uint64_t i = 0;
+        if (polya.y > 0){
+            assert(et.n>0);
+            assert(et.event[i].start>=0);
+
+            while(i < et.n && et.event[i].start < (uint64_t)polya.y ){
+                i++;
+            }
+            start = i;
+            assert((uint64_t)start < et.n);
+            fprintf(stderr,"%s\tevent:%ld/%ld\traw:%ld/%ld\n",rec->read_id,start,et.n,p.y,len_raw_signal);
+        } else {
+            fprintf(stderr,"%s\t./%ld\n",rec->read_id,len_raw_signal);
+        }
+
+    }
+    return start;
+
+}
 
 void normalise_single(core_t* core,db_t* db, int32_t i) {
 
 
-    if(db->slow5_rec[i]->len_raw_signal>0){
+    if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
         int64_t start_idx;
         int64_t end_idx;
@@ -275,19 +317,31 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
         int8_t from_sig_end= core->opt.flag & SIGFISH_END;
 
-
         if(!from_sig_end){ //map query start
+
             start_idx =  core->opt.prefix_size;
+            if(core->opt.prefix_size < 0){
+                start_idx = detect_query_start(db->slow5_rec[i], db->et[i]);
+                if(start_idx < 0){
+                    WARNING("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);
+                    start_idx = 0;
+                    end_idx = 0;
+                    db->et[i].n = 0;
+                }
+            }
             end_idx = start_idx+core->opt.query_size;
+
             if (start_idx > n) {
                 WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
-                start_idx = db->et[i].n;
+                start_idx = 0;
+                end_idx = 0;
                 db->et[i].n = 0;
             }
             if(end_idx > n){
                 WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
                 end_idx = db->et[i].n;
             }
+
         }
         else{ //map query end
             start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
@@ -302,6 +356,9 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
                 db->et[i].n = 0;
             }
         }
+        db->qstart[i] = start_idx;
+        db->qend[i] = end_idx;
+
 
         float event_mean = 0;
         float event_var = 0;
@@ -369,21 +426,21 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         aln_t *aln=init_aln();
 
-        int64_t start_idx;
-        int64_t end_idx;
+        int64_t start_idx = db->qstart[i];
+        int64_t end_idx = db->qend[i];
         int64_t n =  db->et[i].n;
 
         int8_t from_sig_end= core->opt.flag & SIGFISH_END;
         int32_t qlen;
 
         if(!from_sig_end){ //map query start
-            start_idx =  core->opt.prefix_size;
-            end_idx = start_idx+core->opt.query_size;
+            // start_idx =  core->opt.prefix_size;
+            // end_idx = start_idx+core->opt.query_size;
             qlen = end_idx > n ? n -start_idx : core->opt.query_size;
         }
         else{  //map query end
-            start_idx = n - core->opt.prefix_size - core->opt.query_size;
-            end_idx = n - core->opt.prefix_size;
+            // start_idx = n - core->opt.prefix_size - core->opt.query_size;
+            // end_idx = n - core->opt.prefix_size;
             qlen = start_idx < 0 ? end_idx : core->opt.query_size;
             assert(qlen>=0);
         }
@@ -582,6 +639,8 @@ void free_db(db_t* db) {
     free(db->mem_records);
     free(db->mem_bytes);
     free(db->current_signal);
+    free(db->qstart);
+    free(db->qend);
 
     free(db->et);
     free(db->aln);

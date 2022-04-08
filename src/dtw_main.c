@@ -88,7 +88,7 @@ int dtw_main(int argc, char* argv[]) {
 
     //signal(SIGSEGV, sig_handler);
 
-    const char* optstring = "s:b:q:g:t:B:K:v:o:w:hV";
+    const char* optstring = "s:p:q:g:t:B:K:v:o:w:hV";
 
     int longindex = 0;
     int32_t c = -1;
@@ -135,11 +135,10 @@ int dtw_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
             fp_help = stdout;
-        } else if (c == 'b'){ // prefix size
+        } else if (c == 'p'){ // prefix size
             opt.prefix_size = atoi(optarg);
             if (opt.prefix_size < 0) {
-                ERROR("Prefix size should larger than 0. You entered %d",opt.prefix_size);
-                exit(EXIT_FAILURE);
+                INFO("%s","Autodetect query start.");
             }
         } else if (c == 'q'){ //query size
             opt.query_size = atoi(optarg);
@@ -190,6 +189,22 @@ int dtw_main(int argc, char* argv[]) {
         }
     }
 
+    if (opt.prefix_size < 0){
+        if(!(opt.flag & SIGFISH_RNA)){
+            ERROR("%s","DNA does not support auto query start detection.");
+            exit(EXIT_FAILURE);
+        } else {
+            if(opt.flag & SIGFISH_INV){
+                ERROR("%s","Inversion is not compatible with auto query start detection.");
+                exit(EXIT_FAILURE);
+            }
+            if(opt.flag & SIGFISH_END){
+                ERROR("%s","Mapping from query end is not compatible with auto query start detection.");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
     if (slow5file == NULL || fastafile == NULL || fp_help == stdout) {
         fprintf(fp_help,"Usage: sigfish [OPTIONS] -s reads.slow5 -g genome.fa\n");
         fprintf(fp_help,"\nbasic options:\n");
@@ -208,7 +223,7 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"   --kmer-model FILE          custom nucleotide k-mer model file (format similar to test/r9-models/r9.4_450bps.nucleotide.6mer.template.model)\n");
         fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
         fprintf(fp_help,"   -q INT                     the number of events in query signal to align\n");
-        fprintf(fp_help,"   -b INT                     the number of events to trim at query signal start\n");
+        fprintf(fp_help,"   -p INT                     the number of events to trim at query signal start\n");
         fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
         fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
         fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
