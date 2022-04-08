@@ -20,21 +20,28 @@ static struct option long_options[] = {
     {"version", no_argument, 0, 'V'},              //2
     {"output",required_argument, 0, 'o'},          //3 output to a file [stdout]
     {"rna",no_argument,0,0},                       //4 if RNA
+    {"no-header",no_argument,0,'n'},               //5 suppress header
     {0, 0, 0, 0}};
 
 void event_func(slow5_rec_t *rec, int8_t rna);
 void stat_func(slow5_rec_t *rec, int8_t rna);
 void seg_func(slow5_rec_t *rec, int8_t rna);
+void pa_func(slow5_rec_t *rec, int8_t rna);
+void stat_hdr();
+void seg_hdr();
+void event_hdr();
+void pa_hdr();
 
 int cmain(int argc, char* argv[], char *mode) {
 
-    const char* optstring = "o:hV";
+    const char* optstring = "o:hVn";
 
     int longindex = 0;
     int32_t c = -1;
 
     FILE *fp_help = stderr;
     int8_t rna = 0;
+    int8_t hdr = 1;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -43,9 +50,11 @@ int cmain(int argc, char* argv[], char *mode) {
             exit(EXIT_SUCCESS);
         } else if (c=='h'){
             fp_help = stdout;
+        } else if (c=='n'){
+            hdr = 0;
         } else if (c == 0 && longindex == 4){ //if RNA
             rna = 1;
-        } 
+        }
     }
 
 
@@ -54,6 +63,7 @@ int cmain(int argc, char* argv[], char *mode) {
         fprintf(fp_help,"       sigfish %s reads.blow5\n", mode);
         fprintf(fp_help,"\nbasic options:\n");
         fprintf(fp_help,"   -h                         help\n");
+        fprintf(fp_help,"   -n                         supress header\n");
         fprintf(fp_help,"   --version                  print version\n");
         fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
         if(fp_help == stdout){
@@ -72,21 +82,23 @@ int cmain(int argc, char* argv[], char *mode) {
 
     void (*func)(slow5_rec_t*, int8_t) = NULL;
 
-    if (strcmp(mode,"events") == 0){
-        printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");
+    if (strcmp(mode,"event") == 0){
+        if(hdr) event_hdr();
         func = event_func;
-    }
-    else if (strcmp(mode,"stats") == 0){
-        printf("read_id\tnsample\tmean\tstd\tw_mean\tw_std\tadapt_st\tadap_end\n");
+    }else if (strcmp(mode,"stat") == 0){
+        if(hdr) stat_hdr();
         func = stat_func;
-    }
-    else if (strcmp(mode,"seg") == 0){
+    }else if (strcmp(mode,"seg") == 0){
+        if(hdr) seg_hdr();
         func = seg_func;
+    }else if (strcmp(mode,"pa") == 0){
+        if(hdr) pa_hdr();
+        func = pa_func;
     } else {
         ERROR("unknown mode %s\n", mode);
         exit(EXIT_FAILURE);
     }
-    
+
     if(argc-optind == 1){
         while((ret = slow5_get_next(&rec,slow5file)) >= 0){
            func(rec,rna);
@@ -122,8 +134,8 @@ int cmain(int argc, char* argv[], char *mode) {
 
     }
 
-    slow5_rec_free(rec);   
-    slow5_close(slow5file);    
+    slow5_rec_free(rec);
+    slow5_close(slow5file);
 
     return 0;
 }

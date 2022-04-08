@@ -74,9 +74,9 @@ int main(int argc, char* argv[]){
     if(strcmp(argv[1],"dtw")==0){
         ret=dtw_main(argc-1, argv+1);
     }
-    else if (strcmp(argv[1],"events")==0 || strcmp(argv[1],"stats") || strcmp(argv[1],"seg")==0){
+    else if (strcmp(argv[1],"event")==0 || strcmp(argv[1],"stat")==0 || strcmp(argv[1],"seg")==0 || strcmp(argv[1],"pa")==0){
         ret=cmain(argc-1, argv+1, argv[1]);
-    }  
+    }
     else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);
         exit(EXIT_SUCCESS);

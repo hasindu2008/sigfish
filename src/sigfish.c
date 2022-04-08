@@ -252,7 +252,7 @@ void event_single(core_t* core,db_t* db, int32_t i) {
         //         events[n_events-1-i]=tmp_event;
         //     }
         // }
-  
+
 
     }
     else{
@@ -300,7 +300,7 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
                 WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
                 end_idx = 0;
                 db->et[i].n = 0;
-            }            
+            }
         }
 
         float event_mean = 0;
@@ -380,7 +380,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             start_idx =  core->opt.prefix_size;
             end_idx = start_idx+core->opt.query_size;
             qlen = end_idx > n ? n -start_idx : core->opt.query_size;
-        } 
+        }
         else{  //map query end
             start_idx = n - core->opt.prefix_size - core->opt.query_size;
             end_idx = n - core->opt.prefix_size;
@@ -389,7 +389,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         }
 
         int8_t rna = core->opt.flag & SIGFISH_RNA;
-        
+
         float *query = (float *)malloc(sizeof(float)*qlen);
         MALLOC_CHK(query);
 

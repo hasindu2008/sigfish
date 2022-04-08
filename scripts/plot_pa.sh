@@ -13,12 +13,10 @@
 set -x
 read_id=$1
 
-slow5tools get --to slow5 test/sequin_reads.blow5 $1 | grep -v '^[#@]' | awk '{print $8}' > $1.txt
-./sigfish seg test/sequin_reads.blow5 $1 |  cut -f 3- | tr ',' '\t' > $1.seg.txt
+./sigfish pa test/sequin_reads.blow5 $1 |  cut -f 3 | tail -n +2 | tr ',' '\t' > $1.pa.txt
 
 matlab.exe -nodisplay -nosplash -nodesktop -r "
-a=dlmread('$1.txt'); x=dlmread('$1.seg.txt');
-y=zeros(size(x))+1200;
-plot(a); hold on; xlabel('sample index'), ylabel('raw signal value'); stem(x,y); legend('raw signal','jnn'); savefig('$1.fig');
+a=dlmread('$1.pa.txt');
+plot(a); hold on; xlabel('sample index'), ylabel('raw signal value'); legend('raw signal');
 "
 

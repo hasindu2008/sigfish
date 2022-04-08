@@ -182,8 +182,8 @@ static inline float *signal_in_picoamps(slow5_rec_t *rec){
 #define SIGFISH_SIZE 1000
 
 typedef struct {
-    int x;
-    int y;
+    int64_t x;
+    int64_t y;
 } pair_t;
 
 

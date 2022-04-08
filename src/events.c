@@ -26,6 +26,8 @@
 #ifndef DISABLE_KSORT
 #include "ksort.h"
 KSORT_INIT_GENERIC(float)
+KSORT_INIT_GENERIC(int16_t)
+KSORT_INIT_GENERIC(int)
 #endif
 
 /**
