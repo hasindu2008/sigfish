@@ -22,6 +22,7 @@ static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},                 //1
     {"version", no_argument, 0, 'V'},              //2
     {"output",required_argument, 0, 'o'},          //3 output to a file [stdout]
+    {"secondary",required_argument, 0, 0},         //4 consider secondary
     {0, 0, 0, 0}};
 
 typedef struct{
@@ -49,13 +50,13 @@ typedef struct{
     int64_t test_mapped;
 
     //number of reads that fall under each scenario
-    int64_t unmapped_in_both; //the read is unmapped in both truthset and testset
+    //int64_t unmapped_in_both; //the read is unmapped in both truthset and testset
     int64_t correct;             //correct - the read maps to the same location (locations overlaps if overlap based evaluation is set)
     int64_t incorrect;       //incorrect
-    int64_t only_in_a;        //read is only mapped in  truthset
+    //int64_t only_in_a;        //read is only mapped in  truthset
     int64_t only_in_b;        //read is only mapped in  testset
-    int64_t pri_a_to_supp_b;  //primary mapping in truthset is a supplementary mapping in testset
-    int64_t pri_a_to_sec_b;   //primary mapping in testset is a secondary mappings in testset
+    //int64_t pri_a_to_supp_b;  //primary mapping in truthset is a supplementary mapping in testset
+    //int64_t pri_a_to_sec_b;   //primary mapping in testset is a secondary mappings in testset
 
 }eval_stat_t;
 
@@ -227,7 +228,7 @@ void free_hash(eval_hash_t* h){
 
 
 
-void parse_eval(FILE *paffile, eval_hash_t* truth, eval_stat_t *stat){
+void parse_eval(FILE *paffile, eval_hash_t* truth, int8_t sec, eval_stat_t *stat){
 
     //buffers for getline
     size_t bufferSize = 4096;
@@ -252,16 +253,20 @@ void parse_eval(FILE *paffile, eval_hash_t* truth, eval_stat_t *stat){
         else{
             read_hval_t *s = kh_value(h, k);
             int i;
+            int ret = 0;
             for(i=0;i<s->n;i++){
-                if(s->paf[i]->tp==paf->tp){
-                    int ret = compare(s->paf[i],paf);
-                    if(ret){
-                        stat->correct++;
-                    }else{
-                        stat->incorrect++;
+                if(sec || s->paf[i]->tp==paf->tp){
+                    ret = compare(s->paf[i],paf);
+                    if(ret) {
+                        break;
                     }
-                    break;
                 }
+            }
+            if(ret){
+                stat->correct++;
+            }
+            else{
+                stat->incorrect++;
             }
         }
 
@@ -279,17 +284,33 @@ void print_compare_stat(eval_stat_t *stat){
     printf("\nComparison between truthset and testset\n"
     "mapped_truthset\t%ld\n"
     "mapped_testset\t%ld\n"
-    "correct\t%ld\n"
-    "incorrect\t%ld\n"
-    "only_in_truthset\t%ld\n"
-    "only_in_testset\t%ld\n"
-    ,stat->truth_mapped, stat->test_mapped,stat->correct, stat->incorrect, stat->only_in_a, stat->only_in_b);
+    "correct\t%ld (%.2f%%)\n"
+    "incorrect\t%ld (%.2f%%)\n"
+    //"only_in_truthset\t%ld\n"
+    "only_in_testset\t%ld\n",
+    stat->truth_mapped, stat->test_mapped,stat->correct, stat->correct/(float)stat->test_mapped*100,
+    stat->incorrect,stat->incorrect/(float)stat->test_mapped*100, stat->only_in_b);
 #ifdef CONSIDER_SUPPLEMENTARY
     printf("Primary in 'a' is a supplementary in 'b'\t%d\n",stat->pri_a_to_supp_b);
 #endif
 #ifdef CONSIDER_SECONDARY
     printf("Primary in 'a' is a secondary in 'b'\t%d\n",stat->pri_a_to_sec_b);
 #endif
+
+}
+
+int8_t yes_or_no( int long_idx,const char* arg){
+
+    int8_t ret;
+    if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) {
+        ret=1;
+    } else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) {
+        ret=0;
+    } else {
+        WARNING("option '--%s' only accepts 'yes' or 'no'.",
+                long_options[long_idx].name);
+    }
+    return ret;
 
 }
 
@@ -302,7 +323,7 @@ int eval_main(int argc, char* argv[]) {
 
     FILE *fp_help = stderr;
     int8_t rna = 0;
-    int8_t hdr = 1;
+    int8_t sec = 1;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -311,6 +332,8 @@ int eval_main(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         } else if (c=='h'){
             fp_help = stdout;
+        } else if(c == 0 && longindex == 4){ //secondary mappings
+            sec=yes_or_no(longindex, optarg);
         }
     }
 
@@ -319,6 +342,7 @@ int eval_main(int argc, char* argv[]) {
         fprintf(fp_help,"\nbasic options:\n");
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   --version                  print version\n");
+        fprintf(fp_help,"   --secondary STR            consider secondary mappings. yes or no.\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
@@ -342,7 +366,7 @@ int eval_main(int argc, char* argv[]) {
         ERROR("cannot open %s. \n", argv[optind]);
         exit(EXIT_FAILURE);
     }
-    parse_eval(test,h,&stat);
+    parse_eval(test,h,sec,&stat);
     free_hash(h);
 
 

@@ -436,12 +436,14 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         if(!from_sig_end){ //map query start
             // start_idx =  core->opt.prefix_size;
             // end_idx = start_idx+core->opt.query_size;
-            qlen = end_idx > n ? n -start_idx : core->opt.query_size;
+            //qlen = end_idx > n ? n -start_idx : core->opt.query_size;
+            qlen = end_idx - start_idx;
         }
         else{  //map query end
             // start_idx = n - core->opt.prefix_size - core->opt.query_size;
             // end_idx = n - core->opt.prefix_size;
-            qlen = start_idx < 0 ? end_idx : core->opt.query_size;
+            //qlen = start_idx < 0 ? end_idx : core->opt.query_size;
+            qlen = end_idx - start_idx;
             assert(qlen>=0);
         }
 

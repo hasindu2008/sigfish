@@ -174,6 +174,7 @@ static inline float *signal_in_picoamps(slow5_rec_t *rec){
     return current_signal;
 }
 
+
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
 #define SIGFISH_MEAN_VAL 104.6

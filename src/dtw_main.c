@@ -54,6 +54,8 @@ static inline int64_t mm_parse_num(const char* str) //taken from minimap2
     return (int64_t)(x + .499);
 }
 
+
+
 //parse yes or no arguments : taken from minimap2
 static inline void yes_or_no(opt_t* opt, uint64_t flag, int long_idx,
                              const char* arg,
@@ -79,7 +81,6 @@ static inline void yes_or_no(opt_t* opt, uint64_t flag, int long_idx,
         }
     }
 }
-
 
 
 int dtw_main(int argc, char* argv[]) {
