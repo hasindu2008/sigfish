@@ -592,6 +592,10 @@ void output_db(core_t* core, db_t* db) {
             uint64_t start_idx =  db->qstart[i];
             uint64_t end_idx =  db->qend[i];
             uint64_t query_size =  end_idx-start_idx;
+            float block_len = query_size/3.0;
+            float residue = block_len - db->aln[i].score;
+
+
             printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
             printf("%d\t%ld\t%ld\t", db->et[i].n, start_idx,end_idx); // Query sequence length, start, end (in terms of events)
             printf("%c\t",db->aln[i].d); // Direction
@@ -599,15 +603,16 @@ void output_db(core_t* core, db_t* db) {
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
 
 
-            printf("%d\t",db->aln[i].pos - query_size/3); // Target start
+            printf("%d\t",db->aln[i].pos - (int)round(block_len)); // Target start
             printf("%d\t",db->aln[i].pos); // Target end
-            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Number of residues //todo check this
-            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); //  Alignment block length //todo check this
+            printf("%d\t",(int)round(residue)); // Number of residues //todo check this
+            printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
             printf("%d\t",db->aln[i].mapq); // Mapq //todo
             printf("tp:A:P\t");
             printf("d1:f:%f\t",db->aln[i].score); // Mapq //todo
             printf("d2:f:%f\n",db->aln[i].score2); // Mapq //todo
             //printf("%f\n",db->aln[i].score); // Mapq //todo
+
         }
 
     }
