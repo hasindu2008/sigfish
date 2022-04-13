@@ -589,15 +589,17 @@ void output_db(core_t* core, db_t* db) {
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
             // Output of results
-            uint64_t start_idx =  core->opt.prefix_size;
+            uint64_t start_idx =  db->qstart[i];
+            uint64_t end_idx =  db->qend[i];
+            uint64_t query_size =  end_idx-start_idx;
             printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
-            printf("%d\t%ld\t%ld\t", core->opt.query_size , start_idx,core->opt.query_size+start_idx); // Query sequence length, start, end
+            printf("%d\t%ld\t%ld\t", db->et[i].n, start_idx,end_idx); // Query sequence length, start, end (in terms of events)
             printf("%c\t",db->aln[i].d); // Direction
             printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
 
 
-            printf("%d\t",db->aln[i].pos - core->opt.query_size); // Target start
+            printf("%d\t",db->aln[i].pos - query_size/3); // Target start
             printf("%d\t",db->aln[i].pos); // Target end
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Number of residues //todo check this
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); //  Alignment block length //todo check this
