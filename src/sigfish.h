@@ -122,7 +122,8 @@ typedef struct {
 
 typedef struct {
     int32_t rid;
-    int32_t pos;
+    int32_t pos_st;
+    int32_t pos_end;
     float score;
     float score2;
     char d;

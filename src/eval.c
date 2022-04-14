@@ -46,7 +46,10 @@ typedef struct{
 }read_hval_t;
 
 typedef struct{
-    int64_t truth_mapped;
+
+    int64_t truth_rec;    //number of mapped records
+    int64_t test_rec;
+    int64_t truth_mapped; //number of reads mapped (exclude multiple alignments)
     int64_t test_mapped;
 
     //number of reads that fall under each scenario
@@ -191,7 +194,8 @@ eval_hash_t* get_truth(FILE *paffile,eval_stat_t *stat){
 
         mappings_total++;
     }
-    stat->truth_mapped = mappings_total;
+    stat->truth_rec= mappings_total;
+    stat->truth_mapped=kh_size(h);
 
     free(buffer);
 
@@ -272,6 +276,7 @@ void parse_eval(FILE *paffile, eval_hash_t* truth, int8_t sec, eval_stat_t *stat
 
         mappings_total++;
     }
+    stat->test_rec = mappings_total;
     stat->test_mapped = mappings_total;
 
     fprintf(stderr,"Total mappings in testset: %d\n",mappings_total);
@@ -283,12 +288,12 @@ void parse_eval(FILE *paffile, eval_hash_t* truth, int8_t sec, eval_stat_t *stat
 void print_compare_stat(eval_stat_t *stat){
     printf("\nComparison between truthset and testset\n"
     "mapped_truthset\t%ld\n"
-    "mapped_testset\t%ld\n"
+    "mapped_testset\t%ld (%.2f%%)\n"
     "correct\t%ld (%.2f%%)\n"
     "incorrect\t%ld (%.2f%%)\n"
     //"only_in_truthset\t%ld\n"
     "only_in_testset\t%ld\n",
-    stat->truth_mapped, stat->test_mapped,stat->correct, stat->correct/(float)stat->test_mapped*100,
+    stat->truth_mapped, stat->test_mapped,stat->test_mapped/(float)stat->truth_mapped*100 , stat->correct, stat->correct/(float)stat->test_mapped*100,
     stat->incorrect,stat->incorrect/(float)stat->test_mapped*100, stat->only_in_b);
 #ifdef CONSIDER_SUPPLEMENTARY
     printf("Primary in 'a' is a supplementary in 'b'\t%d\n",stat->pri_a_to_supp_b);

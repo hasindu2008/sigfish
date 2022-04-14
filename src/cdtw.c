@@ -93,78 +93,78 @@ std_dtw(float *x, float *y, int n, int m, float *cost, int squared)
   return cost[n*m-1];
 }
 
-// // Compute the warp path starting at cost[startx, starty]
-// // If startx = -1 -> startx = n-1; if starty = -1 -> starty = m-1
-// int
-// path(float *cost, int n, int m, int startx, int starty, Path *p)
-// {
-//   int i, j, k, z1, z2;
-//   int *px;
-//   int *py;
-//   float min_cost;
+// Compute the warp path starting at cost[startx, starty]
+// If startx = -1 -> startx = n-1; if starty = -1 -> starty = m-1
+int
+path(float *cost, int n, int m, int startx, int starty, Path *p)
+{
+  int i, j, k, z1, z2;
+  int *px;
+  int *py;
+  float min_cost;
 
-//   if ((startx >= n) || (starty >= m))
-//     return 0;
+  if ((startx >= n) || (starty >= m))
+    return 0;
 
-//   if (startx < 0)
-//     startx = n - 1;
+  if (startx < 0)
+    startx = n - 1;
 
-//   if (starty < 0)
-//     starty = m - 1;
+  if (starty < 0)
+    starty = m - 1;
 
-//   i = startx;
-//   j = starty;
-//   k = 1;
+  i = startx;
+  j = starty;
+  k = 1;
 
-//   // allocate path for the worst case
-//   px = (int *) malloc ((startx+1) * (starty+1) * sizeof(int));
-//   py = (int *) malloc ((startx+1) * (starty+1) * sizeof(int));
+  // allocate path for the worst case
+  px = (int *) malloc ((startx+1) * (starty+1) * sizeof(int));
+  py = (int *) malloc ((startx+1) * (starty+1) * sizeof(int));
 
-//   px[0] = i;
-//   py[0] = j;
+  px[0] = i;
+  py[0] = j;
 
-//   while ((i > 0) || (j > 0))
-//     {
-//       if (i == 0)
-// 	j--;
-//       else if (j == 0)
-// 	i--;
-//       else
-// 	{
-// 	  min_cost = min3(cost[(i-1)*m+j],
-// 			  cost[(i-1)*m+(j-1)],
-// 			  cost[i*m+(j-1)]);
+  while ((i > 0) || (j > 0))
+    {
+      if (i == 0)
+	j--;
+      else if (j == 0)
+	i--;
+      else
+	{
+	  min_cost = min3(cost[(i-1)*m+j],
+			  cost[(i-1)*m+(j-1)],
+			  cost[i*m+(j-1)]);
 
-// 	  if (cost[(i-1)*m+(j-1)] == min_cost)
-// 	    {
-// 	      i--;
-// 	      j--;
-// 	    }
-// 	  else if (cost[i*m+(j-1)] == min_cost)
-// 	    j--;
-// 	  else
-// 	    i--;
-// 	}
+	  if (cost[(i-1)*m+(j-1)] == min_cost)
+	    {
+	      i--;
+	      j--;
+	    }
+	  else if (cost[i*m+(j-1)] == min_cost)
+	    j--;
+	  else
+	    i--;
+	}
 
-//       px[k] = i;
-//       py[k] = j;
-//       k++;
-//     }
+      px[k] = i;
+      py[k] = j;
+      k++;
+    }
 
-//   p->px = (int *) malloc (k * sizeof(int));
-//   p->py = (int *) malloc (k * sizeof(int));
-//   for (z1=0, z2=k-1; z1<k; z1++, z2--)
-//     {
-//       p->px[z1] = px[z2];
-//       p->py[z1] = py[z2];
-//     }
-//   p->k = k;
+  p->px = (int *) malloc (k * sizeof(int));
+  p->py = (int *) malloc (k * sizeof(int));
+  for (z1=0, z2=k-1; z1<k; z1++, z2--)
+    {
+      p->px[z1] = px[z2];
+      p->py[z1] = py[z2];
+    }
+  p->k = k;
 
-//   free(px);
-//   free(py);
+  free(px);
+  free(py);
 
-//   return 1;
-// }
+  return 1;
+}
 
 
 //
@@ -189,39 +189,39 @@ subsequence(float *x, float *y, int n, int m, float *cost)
 }
 
 
-// int
-// subsequence_path(float *cost, int n, int m, int starty, Path *p)
-// {
-//   int i, z1, z2;
-//   int a_star;
-//   int *tmpx, *tmpy;
+int
+subsequence_path(float *cost, int n, int m, int starty, Path *p)
+{
+  int i, z1, z2;
+  int a_star;
+  int *tmpx, *tmpy;
 
-//   // find path
-//   if (!path(cost, n, m, -1, starty, p))
-//     return 0;
+  // find path
+  if (!path(cost, n, m, -1, starty, p))
+    return 0;
 
-//   // find a_star
-//   a_star = 0;
-//   for (i=1; i<p->k; i++)
-//     if (p->px[i] == 0)
-//       a_star++;
-//     else
-//       break;
+  // find a_star
+  a_star = 0;
+  for (i=1; i<p->k; i++)
+    if (p->px[i] == 0)
+      a_star++;
+    else
+      break;
 
-//   // rebuild path
-//   tmpx = p->px;
-//   tmpy = p->py;
-//   p->px = (int *) malloc ((p->k-a_star) * sizeof(int));
-//   p->py = (int *) malloc ((p->k-a_star) * sizeof(int));
-//   for (z1=0, z2=a_star; z2<p->k; z1++, z2++)
-//     {
-//       p->px[z1] = tmpx[z2];
-//       p->py[z1] = tmpy[z2];
-//     }
-//   p->k = p->k-a_star;
+  // rebuild path
+  tmpx = p->px;
+  tmpy = p->py;
+  p->px = (int *) malloc ((p->k-a_star) * sizeof(int));
+  p->py = (int *) malloc ((p->k-a_star) * sizeof(int));
+  for (z1=0, z2=a_star; z2<p->k; z1++, z2++)
+    {
+      p->px[z1] = tmpx[z2];
+      p->py[z1] = tmpy[z2];
+    }
+  p->k = p->k-a_star;
 
-//   free(tmpx);
-//   free(tmpy);
+  free(tmpx);
+  free(tmpy);
 
-//   return 1;
-// }
+  return 1;
+}
