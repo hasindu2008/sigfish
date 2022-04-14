@@ -587,7 +587,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         db->aln[i].rid = aln[SECONDARY_CAP-1].rid;
         db->aln[i].d = aln[SECONDARY_CAP-1].d;
 
-        int mapq=(int)round(-10*log10(1-(db->aln[i].score2-db->aln[i].score)/db->aln[i].score2)*100);
+        int mapq=(int)round(500*(db->aln[i].score2-db->aln[i].score)/db->aln[i].score);
         if(mapq>60){
             mapq=60;
         }
@@ -638,7 +638,7 @@ void output_db(core_t* core, db_t* db) {
             uint64_t end_idx =  db->qend[i];
             uint64_t query_size =  end_idx-start_idx;
             float block_len = db->aln[i].pos_end - db->aln[i].pos_st;
-            float residue = block_len - db->aln[i].score;
+            float residue = block_len - db->aln[i].score*block_len/query_size ;
 
 
             printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
@@ -654,8 +654,8 @@ void output_db(core_t* core, db_t* db) {
             printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
             printf("%d\t",db->aln[i].mapq); // Mapq
             printf("tp:A:P\t");
-            printf("d1:f:%f\t",db->aln[i].score); // distance of the best match
-            printf("d2:f:%f\n",db->aln[i].score2); // distance of the second best matcj
+            printf("d1:f:%.2f\t",db->aln[i].score); // distance of the best match
+            printf("d2:f:%.2f\n",db->aln[i].score2); // distance of the second best matcj
 
         }
 
