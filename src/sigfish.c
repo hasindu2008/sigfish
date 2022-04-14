@@ -291,12 +291,14 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
             assert(et.n>0);
             assert(et.event[i].start>=0);
 
+            polya.y = polya.y + p.y;
+
             while(i < et.n && et.event[i].start < (uint64_t)polya.y ){
                 i++;
             }
             start = i;
             assert((uint64_t)start < et.n);
-            //fprintf(stderr,"%s\tevent:%ld/%ld\traw:%ld/%ld\n",rec->read_id,start,et.n,p.y,len_raw_signal);
+            fprintf(stderr,"%s\tevent:%ld/%ld\traw:%ld/%ld\n",rec->read_id,start,et.n,polya.y ,len_raw_signal);
         } else {
             fprintf(stderr,"%s\t./%ld\n",rec->read_id,len_raw_signal);
         }
