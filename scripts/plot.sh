@@ -28,10 +28,10 @@ f=figure;
 plot(a); hold on; plot(avg); xlabel('sample index'), ylabel('raw signal value'); stem(x1,y); stem(x2,y); stem(x3,y); stem(x4,y); legend('raw signal','events','jnn-adaptor','jnn-polya', 'abea', 'eventalign');
 savefig(f,'$1.fig');
 saveas(f,'$1.png');
-%close all;
+close all;
 %c=dlmread('$1.adaptor.txt');
 %figure; plot(b(:,3)); savefig('$1.events.fig');
-%exit
+exit
 "
 
 

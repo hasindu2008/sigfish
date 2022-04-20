@@ -13,8 +13,8 @@ make
 #./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --from-end -q 500 > ${MY_PAF}
 #./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --full-ref --from-end -q 500 > ${MY_PAF}
 #./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --full-ref -q 500  > ${MY_PAF}
-#./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna -q 500  > ${MY_PAF}
-./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --full-ref -q 500 -p -1 > ${MY_PAF}
+./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}
+#./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --rna --full-ref -q 500 -p -1 > ${MY_PAF}
 
 ./sigfish eval ${REF_PAF} ${MY_PAF}
 source ${HARU_VENV}/bin/activate
