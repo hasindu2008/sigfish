@@ -8,6 +8,10 @@
 #include <stdint.h>
 #include "slow5/slow5.h"
 
+#ifdef FPGA
+#include <haru.h>
+#endif
+
 #define SIGFISH_VERSION "0.1.0"
 
 //model types
@@ -201,6 +205,10 @@ typedef struct {
     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
 
     refsynth_t *ref;
+
+#ifdef FPGA
+    haru_t *haru;
+#endif
 
 } core_t;
 

@@ -24,6 +24,11 @@ OBJ = $(BUILD_DIR)/main.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/eval.o \
 
+ifdef fpga
+	OBJ +=	$(BUILD_DIR)/haru.o $(BUILD_DIR)/axi_dma.o $(BUILD_DIR)/dtw_accel.o
+	CPPFLAGS += -D FPGA=1 -I sw__haru/src/
+endif
+
 PREFIX = /usr/local
 VERSION = `git describe --tags`
 
@@ -72,6 +77,18 @@ $(BUILD_DIR)/misc.o: src/misc.c
 
 $(BUILD_DIR)/eval.o: src/eval.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
+
+#haru things
+$(BUILD_DIR)/haru.o: sw__haru/src/haru.c sw__haru/src/axi_dma.h sw__haru/src/dtw_accel.h sw__haru/src/misc.h
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
+$(BUILD_DIR)/axi_dma.o: sw__haru/src/axi_dma.c sw__haru/src/axi_dma.h
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
+$(BUILD_DIR)/dtw_accel.o: sw__haru/src/dtw_accel.c sw__haru/src/dtw_accel.h sw__haru/src/misc.h
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
 
 slow5lib/lib/libslow5.a:
 	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local)  lib/libslow5.a

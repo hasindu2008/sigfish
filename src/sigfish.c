@@ -21,6 +21,8 @@
 #include <unistd.h>
 
 
+
+
 /* initialise the core data structure */
 core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realtime0) {
 
@@ -93,6 +95,36 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
     //synthetic reference
     core->ref = gen_ref(fastafile,core->model,kmer_size,opt.flag, opt.query_size);
 
+#ifdef FPGA
+    core->haru = (haru_t *)malloc(sizeof(haru_t));
+    MALLOC_CHK(core->haru);
+
+    int ret = haru_init(core->haru);
+    if (ret != 0) {
+        ERROR("%s","haru_init failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if(core->ref->num_ref>1){
+        ERROR("%s","The FPGA version currently only supports one reference");
+        exit(EXIT_FAILURE);
+    }
+
+    int32_t rlen = core->ref->ref_lengths[0];
+    int32_t *ref = (int32_t *)malloc(sizeof(int32_t) * rlen * 2);
+    MALLOC_CHK(ref);
+
+    for(int i=0;i<rlen;i++){
+        ref[i] = (int32_t) (core->ref->forward[0][i] * 32);
+        ref[i+rlen] = (int32_t) (core->ref->reverse[0][i] *32);
+    }
+
+    haru_load_reference(core->haru, ref, rlen * 2);
+
+    free(ref);
+
+#endif
+
     core->opt = opt;
 
     //realtime0
@@ -124,6 +156,12 @@ void free_core(core_t* core,opt_t opt) {
     free_ref(core->ref);
 
     slow5_close(core->sf);
+
+#ifdef FPGA
+    haru_release(core->haru);
+    free(core->haru);
+#endif
+
     free(core);
 }
 
@@ -605,13 +643,97 @@ void work_per_single_read(core_t* core,db_t* db, int32_t i){
     parse_single(core,db,i);
     event_single(core,db,i);
     normalise_single(core,db,i);
+
+#ifndef FPGA
     dtw_single(core,db,i);
+#endif
 
 }
+
+#ifdef FPGA
+
+void dtw_fpga(core_t* core,db_t* db){
+    int32_t i=0;
+    for (i = 0; i < db->n_rec; i++) {
+
+        if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
+
+            aln_t *aln=init_aln();
+
+            int64_t start_idx = db->qstart[i];
+            int64_t end_idx = db->qend[i];
+            int64_t n =  db->et[i].n;
+
+            int8_t from_sig_end= core->opt.flag & SIGFISH_END;
+            int32_t qlen;
+
+            if(!from_sig_end){ //map query start
+                // start_idx =  core->opt.prefix_size;
+                // end_idx = start_idx+core->opt.query_size;
+                //qlen = end_idx > n ? n -start_idx : core->opt.query_size;
+                qlen = end_idx - start_idx;
+            }
+            else{  //map query end
+                // start_idx = n - core->opt.prefix_size - core->opt.query_size;
+                // end_idx = n - core->opt.prefix_size;
+                //qlen = start_idx < 0 ? end_idx : core->opt.query_size;
+                qlen = end_idx - start_idx;
+                assert(qlen>=0);
+            }
+
+            int8_t rna = core->opt.flag & SIGFISH_RNA;
+
+            int32_t rlen = core->ref->ref_lengths[0];
+
+
+
+            int32_t *query_r = (int32_t *)malloc(sizeof(int32_t)*(qlen+2));
+            MALLOC_CHK(query_r);
+            query_r[0]=i;
+            query_r[1]=0;
+
+            int32_t *query = &query_r[2];
+
+            for(int j=0;j<qlen;j++){
+                if (!(core->opt.flag & SIGFISH_INV) && rna){
+                    query[qlen-1-j] = (int32_t) (db->et[i].event[j+start_idx].mean * 32);
+                }
+                else{
+                    query[j] = (int32_t) (db->et[i].event[j+start_idx].mean * 32);
+                }
+            }
+
+            search_result_t results;
+            haru_process_query(core->haru, query_r, qlen+2, &results);
+
+            free(query_r);
+
+
+            db->aln[i].score = ((float)results.score)/32.0;
+            db->aln[i].score2 = ((float)results.score)/32.0;
+            db->aln[i].pos_st = results.position;
+            db->aln[i].pos_end = results.position;
+            db->aln[i].rid = 0;
+            db->aln[i].d = 0;
+            db->aln[i].mapq = 60;
+
+            free(aln);
+        }
+
+
+    }
+}
+
+#endif
 
 void process_db(core_t* core,db_t* db){
     double proc_start = realtime();
     work_db(core, db, work_per_single_read);
+
+#ifdef FPGA
+    dtw_fpga(core,db);
+#endif
+
     double proc_end = realtime();
     core->process_db_time += (proc_end-proc_start);
 }
