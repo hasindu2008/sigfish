@@ -119,7 +119,9 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         ref[i+rlen] = (int32_t) (core->ref->reverse[0][i] *32);
     }
 
+    haru_get_load_done(core->haru);
     haru_load_reference(core->haru, ref, rlen * 2);
+    haru_get_load_done(core->haru);
 
     free(ref);
 
