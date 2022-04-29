@@ -249,7 +249,7 @@ void parse_single(core_t* core,db_t* db, int32_t i){
 
     assert(db->mem_bytes[i]>0);
     assert(db->mem_records[i]!=NULL);
-    db->slow5_rec[i]=NULL;
+    //db->slow5_rec[i]=NULL;
     int ret=slow5_rec_depress_parse(&db->mem_records[i], &db->mem_bytes[i], NULL, &db->slow5_rec[i], core->sf);
     if(ret!=0){
         ERROR("Error parsing the record %d",i);
