@@ -119,7 +119,12 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         ref[i+rlen] = (int32_t) (core->ref->reverse[0][i] *32);
     }
 
-    haru_load_reference(core->haru, ref, rlen * 2);
+    // haru_get_load_done(core->haru);
+    if (haru_load_reference(core->haru, ref, rlen * 2) == 0) {
+        ERROR("%s","Load reference incomplete\n");
+        exit(EXIT_FAILURE);
+    }
+    haru_get_load_done(core->haru);
 
     free(ref);
 
@@ -247,7 +252,7 @@ void parse_single(core_t* core,db_t* db, int32_t i){
 
     assert(db->mem_bytes[i]>0);
     assert(db->mem_records[i]!=NULL);
-    db->slow5_rec[i]=NULL;
+    //db->slow5_rec[i]=NULL;
     int ret=slow5_rec_depress_parse(&db->mem_records[i], &db->mem_bytes[i], NULL, &db->slow5_rec[i], core->sf);
     if(ret!=0){
         ERROR("Error parsing the record %d",i);
