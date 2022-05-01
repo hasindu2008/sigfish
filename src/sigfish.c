@@ -711,10 +711,19 @@ void dtw_fpga(core_t* core,db_t* db){
 
             db->aln[i].score = ((float)results.score)/32.0;
             db->aln[i].score2 = ((float)results.score)/32.0;
-            db->aln[i].pos_st = results.position;
-            db->aln[i].pos_end = results.position;
+            if (results.position > rlen) {
+                // reverse
+                db->aln[i].pos_st = 2*rlen - results.position;
+                db->aln[i].pos_end = db->aln[i].pos_st + 250;
+                db->aln[i].d = '-';
+            } else {
+                // forward
+                db->aln[i].pos_end = results.position;
+                db->aln[i].pos_st = results.position - 250;
+                db->aln[i].d = '+';
+            }
+
             db->aln[i].rid = 0;
-            db->aln[i].d = 0;
             db->aln[i].mapq = 60;
 
             free(aln);
