@@ -19,7 +19,7 @@ RESULTS_DIR=test/rfc1/results
 REF=${TESTDATA_DIR}/rfc1.fa
 
 function form_mypaf_name () {
-    if [ RUN_FPGA ]; then
+    if [ $RUN_FPGA -eq 1 ]; then
         MY_PAF="${MY_PAF}_fpga".paf
     else
         MY_PAF="${MY_PAF}".paf
@@ -64,7 +64,10 @@ if [ $TEST_CASE -eq 1 ]; then
     my_cmd ./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS}  > ${MY_PAF}
     my_cmd uncalled pafstats -r ${REF_PAF} ${MY_PAF} > ${MY_PAF}.stats
     cat ${MY_PAF}.stats
-    echo "Stats store in ${MY_PAF}.stats"
+    
+    echo "[INFO] Reference paf: ${REF_PAF}"
+    echo "[INFO] My paf:        ${MY_PAF}"
+    echo "[INFO] Stats:         ${MY_PAF}.stats"
 elif [ $TEST_CASE -eq 2 ]; then
     # full sp1
     echo "Running test for full sp1 dataset"
