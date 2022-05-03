@@ -509,7 +509,7 @@ void stat_func(slow5_rec_t *rec, int8_t rna){
 }
 
 void seg_hdr(){
-    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tadapt_mean\tadapt_std\tadapt_median\tpolya_start\tpolya_end\n");
+    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
 }
 
 void seg_func(slow5_rec_t *rec, int8_t rna){
@@ -522,9 +522,9 @@ void seg_func(slow5_rec_t *rec, int8_t rna){
 
         float *current = signal_in_picoamps(rec);
         float m_a = meanf(&current[p.x],p.y-p.x);
-        float s_a = stdvf(&current[p.x],p.y-p.x);
-        float k_a = medianf(&current[p.x],p.y-p.x);
-        printf("%f\t%f\t%f\t",m_a, s_a, k_a);
+        //float s_a = stdvf(&current[p.x],p.y-p.x);
+        //float k_a = medianf(&current[p.x],p.y-p.x);
+        //printf("%f\t%f\t%f\t",m_a, s_a, k_a);
 
         assert(p.y > 0);
         assert(p.y < len_raw_signal);

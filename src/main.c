@@ -47,9 +47,11 @@ int print_usage(FILE *fp_help){
 
     fprintf(fp_help,"Usage: sigfish <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
-    fprintf(fp_help,"         dtw              	\n");
-    fprintf(fp_help,"         events              	\n");
-    fprintf(fp_help,"         stats              	\n");
+    fprintf(fp_help,"         dtw       align query signal to target reference in using DTW\n");
+    fprintf(fp_help,"         event     segment raw signal into events\n");
+    fprintf(fp_help,"         stat      print statistics of the raw signal\n");
+    fprintf(fp_help,"         seg       segmentation\n");
+    fprintf(fp_help,"         eval      evaluate mappings\n");
     if(fp_help==stderr){
         exit(EXIT_FAILURE);
     }

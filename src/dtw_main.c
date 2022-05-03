@@ -223,14 +223,14 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"\nadvanced options:\n");
         fprintf(fp_help,"   --kmer-model FILE          custom nucleotide k-mer model file (format similar to test/r9-models/r9.4_450bps.nucleotide.6mer.template.model)\n");
         fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
-        fprintf(fp_help,"   -q INT                     the number of events in query signal to align\n");
-        fprintf(fp_help,"   -p INT                     the number of events to trim at query signal start\n");
+        fprintf(fp_help,"   -q INT                     the number of events in query signal to align [%d]\n",opt.query_size);
+        fprintf(fp_help,"   -p INT                     the number of events to trim at query signal start [%d]\n",opt.prefix_size);
         fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
         fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
         fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
-        fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no.\n");
-        fprintf(fp_help,"   --full-ref                 map to the full reference.\n");
-        fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning.\n");
+        fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
+        fprintf(fp_help,"   --full-ref                 map to the full reference\n");
+        fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning\n");
 
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);

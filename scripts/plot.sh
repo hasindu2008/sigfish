@@ -5,7 +5,7 @@ read_id=$1
 
 slow5tools get --to slow5 test/sequin_reads.blow5 $1 | grep -v '^[#@]' | awk '{print $8}' > $1.txt
 ./sigfish event --rna test/sequin_reads.blow5 $1 -n | awk '{print $3"\t"$4"\t"$5}' > $1.events.txt
-./sigfish seg test/sequin_reads.blow5 $1 -n | cut -f 3,4,8,9 > $1.adaptor.txt
+./sigfish seg test/sequin_reads.blow5 $1 -n | cut -f 3,4,5,6 > $1.adaptor.txt
 
 zgrep $1  test/sequin_reads.abea.tsv.gz | awk '{print $5"\n"$6}' | datamash min 1 max 1 > $1.abea.txt
 zgrep $1  test/sequin_reads.eventalign.tsv.gz | awk '{print $NF"\n"$(NF-1)}' | datamash min 1 max 1 > $1.eventalign.txt

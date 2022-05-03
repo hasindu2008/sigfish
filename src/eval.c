@@ -306,7 +306,7 @@ void print_compare_stat(eval_stat_t *stat){
 
 int8_t yes_or_no( int long_idx,const char* arg){
 
-    int8_t ret;
+    int8_t ret=0;
     if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) {
         ret=1;
     } else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) {
@@ -327,7 +327,7 @@ int eval_main(int argc, char* argv[]) {
     int32_t c = -1;
 
     FILE *fp_help = stderr;
-    int8_t rna = 0;
+    //int8_t rna = 0;
     int8_t sec = 1;
 
     //parse the user args
@@ -343,7 +343,7 @@ int eval_main(int argc, char* argv[]) {
     }
 
     if (argc-optind<2 ||  fp_help == stdout) {
-        fprintf(fp_help,"Usage: sigfish eval truth.paf test.paf \n");
+        fprintf(fp_help,"Usage: sigfish eval truth.paf test.paf\n");
         fprintf(fp_help,"\nbasic options:\n");
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   --version                  print version\n");
