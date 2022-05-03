@@ -297,7 +297,9 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
                 i++;
             }
             start = i;
-            assert((uint64_t)start < et.n);
+            if((uint64_t)start >= et.n){
+                start = -1;
+            }
             fprintf(stderr,"%s\tevent:%ld/%ld\traw:%ld/%ld\n",rec->read_id,start,et.n,polya.y ,len_raw_signal);
         } else {
             fprintf(stderr,"%s\t./%ld\n",rec->read_id,len_raw_signal);
