@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -e
+
+# tools locations
+HARU_VENV=/mnt/d/Projects/HARU/RUscripts/env
+MINIMAP2=minimap2
+
+# test settings
+RUN_MINIMAP2=${RUN_MINIMAP2:-true}
+RUN_FPGA=${RUN_FPGA:-0}
+TEST_CASE=${TEST_CASE:-1}
+THREADS=8
+
+
+# test data
+TESTDATA_DIR=test/sp1
+RESULTS_DIR=test/sp1/results
+REF=${TESTDATA_DIR}/nCoV-2019.reference.fasta
+
+function form_mypaf_name () {
+    if [ RUN_FPGA -eq 1 ]; then
+        MY_PAF="${MY_PAF}_fpga".paf
+    else
+        MY_PAF="${MY_PAF}".paf
+    fi
+}
+
+function my_cmd () {
+    $@
+}
+
+#${MINIMAP2} -cx map-ont ${REF} ${FASTQ} --secondary=no -t ${THREADS} > ${REF_PAF}
+#./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS} --from-end > ${MY_PAF}
+echo "mkdir -p ${TESTDATA_DIR}/run"
+mkdir -p ${TESTDATA_DIR}/results
+
+echo "Sourcing ${HARU_VENV}/bin/activate"
+source ${HARU_VENV}/bin/activate
+
+echo "TEST_CASE: ${TEST_CASE}"
+if [ $TEST_CASE -eq 1 ]; then
+    # batch0
+    echo "=========================================================="
+    echo "== Running test for batch0 sp1"
+    echo "=========================================================="
+    BLOW5=${TESTDATA_DIR}/batch0.blow5
+    MY_PAF=${RESULTS_DIR}/test_batch0
+    form_mypaf_name
+    REF_PAF=${TESTDATA_DIR}/batch0_sp1.paf
+    my_cmd ./sigfish dtw -g ${REF} -s ${BLOW5} -t ${THREADS}  > ${MY_PAF}
+    my_cmd uncalled pafstats -r ${REF_PAF} ${MY_PAF} > ${MY_PAF}.stats
+    cat ${MY_PAF}.stats
+    echo "Stats store in ${MY_PAF}.stats"
+elif [ $TEST_CASE -eq 2 ]; then
+    # full sp1
+    echo "Running test for full sp1 dataset"
+    BLOW5=$2
+    MY_PAF=${RESULTS_DIR}/test_sp1
+    REF_PAF=${TESTDATA_DIR}/batch0_sp1.paf
+fi
