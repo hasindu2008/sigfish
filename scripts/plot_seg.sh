@@ -14,7 +14,7 @@ set -x
 read_id=$1
 
 slow5tools get --to slow5 test/sequin_reads.blow5 $1 | grep -v '^[#@]' | awk '{print $8}' > $1.txt
-./sigfish seg test/sequin_reads.blow5 $1 -n |  cut -f 3,4,5,6 | tr ',' '\t' > $1.seg.txt
+./sigfish seg test/sequin_reads.blow5 $1 -n |  cut -f 3,4,5,6 | sed 's/\t\./\tNaN/g' | tr ',' '\t' > $1.seg.txt
 
 matlab.exe -nodisplay -nosplash -nodesktop -r "
 a=dlmread('$1.txt'); x=dlmread('$1.seg.txt');

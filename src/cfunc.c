@@ -390,11 +390,11 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
         int prev_err = 0;  // consecutive error
         int c = 0;         // counter
         int w = 50;        // window to increase total error thresh
-        int seg_dist = 50; // distance between 2 segs to be merged as one
+        int seg_dist = 200; // distance between 2 segs to be merged as one
         int start = 0;     // start pos
         int end = 0 ;      // end pos
-        int window = 1000;
-        int error = 5;
+        int window = 250;
+        int error = 30;
         float stall_len = 1.0;
 
         // segments [(start, stop)]
@@ -509,7 +509,7 @@ void stat_func(slow5_rec_t *rec, int8_t rna){
 }
 
 void seg_hdr(){
-    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
+    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\tadapt_mean\tadapt_std\tadapt_median\tpolya_mean\tpolya_std\tpolya_median\n");
 }
 
 void seg_func(slow5_rec_t *rec, int8_t rna){
@@ -522,9 +522,8 @@ void seg_func(slow5_rec_t *rec, int8_t rna){
 
         float *current = signal_in_picoamps(rec);
         float m_a = meanf(&current[p.x],p.y-p.x);
-        //float s_a = stdvf(&current[p.x],p.y-p.x);
-        //float k_a = medianf(&current[p.x],p.y-p.x);
-        //printf("%f\t%f\t%f\t",m_a, s_a, k_a);
+        float s_a = stdvf(&current[p.x],p.y-p.x);
+        float k_a = medianf(&current[p.x],p.y-p.x);
 
         assert(p.y > 0);
         assert(p.y < len_raw_signal);
@@ -535,10 +534,18 @@ void seg_func(slow5_rec_t *rec, int8_t rna){
         pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
         if(polya.y > 0){
             assert(polya.y + p.y < len_raw_signal);
-            printf("%ld\t%ld",polya.x+p.y, polya.y+p.y);
+            printf("%ld\t%ld\t",polya.x+p.y, polya.y+p.y);
         }else{
-            printf(".\t.");
+            printf(".\t.\t");
         }
+
+        printf("%f\t%f\t%f\t",m_a, s_a, k_a);
+
+        float m_poly = meanf(&current[polya.x+p.y],polya.y-polya.x);
+        float s_poly = stdvf(&current[polya.x+p.y],polya.y-polya.x);
+        float k_poly = medianf(&current[polya.x+p.y],polya.y-polya.x);
+
+        printf("%f\t%f\t%f\t",m_poly, s_poly, k_poly);
 
         free(current);
 
