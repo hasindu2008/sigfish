@@ -427,8 +427,11 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
                 aln[l-1].pos_st = -1;
             }else{
                 aln[l-1].pos_st = p.py[0];
-                assert(p.py[p.k-1] == pos);
-                //fprintf(stderr,"%d %d %d %d\n",qlen,rlen,pos,aln[l-1].pos_st);
+                if(p.py[p.k-1] != pos){
+                    fprintf(stderr,"SOme shit happened in the backtracking\n");
+                    fprintf(stderr,"%d %d %d %d %d\n",qlen,rlen,pos,aln[l-1].pos_st,p.py[p.k-1]);
+                }
+
             }
             free(p.px);
             free(p.py);
