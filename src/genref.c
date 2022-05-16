@@ -18,6 +18,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
+//#define NORMALISE_ALL 1
 
 //todo : can make more efficient using bit encoding
 static inline uint32_t get_rank(char base) {
@@ -79,27 +80,63 @@ static inline char complement(char c){
 
 static inline void normalise(float *rawptr, uint64_t n){
 
-        uint64_t start_idx =  0;
-        uint64_t end_idx = n;
+    uint64_t start_idx =  0;
+    uint64_t end_idx = n;
 
-        float event_mean = 0;
-        float event_var = 0;
-        float event_stdv = 0;
-        float num_samples = end_idx-start_idx;
+    float event_mean = 0;
+    float event_var = 0;
+    float event_stdv = 0;
+    float num_samples = end_idx-start_idx;
 
-        for(uint64_t j=start_idx; j<end_idx; j++){
-            event_mean += rawptr[j];
-        }
-        event_mean /= num_samples;
-        for(uint64_t j=start_idx; j<end_idx; j++){
-            event_var += (rawptr[j]-event_mean)*(rawptr[j]-event_mean);
-        }
-        event_var /= num_samples;
-        event_stdv = sqrt(event_var);
+    for(uint64_t j=start_idx; j<end_idx; j++){
+        event_mean += rawptr[j];
+    }
+    event_mean /= num_samples;
+    for(uint64_t j=start_idx; j<end_idx; j++){
+        event_var += (rawptr[j]-event_mean)*(rawptr[j]-event_mean);
+    }
+    event_var /= num_samples;
+    event_stdv = sqrt(event_var);
 
-        for(uint64_t j=start_idx; j<end_idx; j++){
-            rawptr[j] = (rawptr[j]-event_mean)/event_stdv;
+    for(uint64_t j=start_idx; j<end_idx; j++){
+        rawptr[j] = (rawptr[j]-event_mean)/event_stdv;
+    }
+
+}
+
+static inline void normalise_ref(refsynth_t *ref, int8_t rna){
+
+    uint64_t n = 0;
+    float mean = 0;
+    float var = 0;
+    float stdv = 0;
+    for(int i=0; i<ref->num_ref; i++){
+        n += ref->ref_lengths[i];
+        for(int32_t j= 0; j<ref->ref_lengths[i]; j++){
+            mean += ref->forward[i][j];
         }
+    }
+    mean /= n;
+
+    for(int i=0; i<ref->num_ref; i++){
+        for(int32_t j= 0; j<ref->ref_lengths[i]; j++){
+            float a = ref->forward[i][j]-mean;
+            var += a*a;
+        }
+    }
+    var /= n;
+    stdv =  sqrt(var);
+
+    for(int i=0; i<ref->num_ref; i++){
+        for(int32_t j= 0; j<ref->ref_lengths[i]; j++){
+            ref->forward[i][j] = (ref->forward[i][j]-mean)/stdv;
+            if (!rna){
+                ref->reverse[i][j] = (ref->reverse[i][j]-mean)/stdv;
+            }
+        }
+
+    }
+
 
 }
 
@@ -232,11 +269,14 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
         // }
         // fprintf(stderr,"\n");
 
-
+        #ifndef NORMALISE_ALL
         normalise(ref->forward[i], ref->ref_lengths[i]);
-        if (!rna){
+        #endif
+            if (!rna){
             free(rc);
+            #ifndef NORMALISE_ALL
             normalise(ref->reverse[i], ref->ref_lengths[i]);
+            #endif
         }
 
 
@@ -250,6 +290,10 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
     }
 
     ref->num_ref = i;
+    #ifdef NORMALISE_ALL
+    normalise_ref(ref,rna);
+    #endif
+
 
     kseq_destroy(seq);
     gzclose(fp);
