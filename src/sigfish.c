@@ -56,7 +56,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         STDERR("Error opening SLOW5 file %s\n",slow5file);
         exit(EXIT_FAILURE);
     }
-
+    drna_mismatch(core->sf, opt.flag & SIGFISH_RNA);
 
     //model
     core->model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now

@@ -361,8 +361,6 @@ pair_t jnn(slow5_rec_t *rec){
                 printf("%ld,%ld\t",segs[i].x,segs[i].y);
             }
         }
-        printf("\n");
-
 
         if(seg_i){
             p = {segs[seg_i-1].x,segs[seg_i-1].y};
@@ -371,6 +369,20 @@ pair_t jnn(slow5_rec_t *rec){
     }
 
     return p;
+}
+
+void jnn_func(slow5_rec_t *rec, int8_t rna){
+    printf("%s\t",rec->read_id);
+
+    uint64_t len_raw_signal = rec->len_raw_signal;
+    printf("%ld\t",len_raw_signal);
+
+    jnn(rec);
+    printf("\n");
+
+}
+void jnn_hdr(){
+    printf("read_id\tlen_raw_signal\tnum_seg\tseg_st0,seg_end0,seg_st1,seg_end1,....\n");
 }
 
 pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
@@ -531,7 +543,13 @@ void seg_func(slow5_rec_t *rec, int8_t rna){
 
         float *adapt_end = &current[p.y];
 
-        pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
+
+        pair_t polya;
+        if(rna){
+            polya=find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
+        } else {
+            polya = {-1,-1};
+        }
         if(polya.y > 0){
             assert(polya.y + p.y < len_raw_signal);
             printf("%ld\t%ld\t",polya.x+p.y, polya.y+p.y);
@@ -541,11 +559,14 @@ void seg_func(slow5_rec_t *rec, int8_t rna){
 
         printf("%f\t%f\t%f\t",m_a, s_a, k_a);
 
-        float m_poly = meanf(&current[polya.x+p.y],polya.y-polya.x);
-        float s_poly = stdvf(&current[polya.x+p.y],polya.y-polya.x);
-        float k_poly = medianf(&current[polya.x+p.y],polya.y-polya.x);
-
-        printf("%f\t%f\t%f\t",m_poly, s_poly, k_poly);
+        if(polya.y > 0){
+            float m_poly = meanf(&current[polya.x+p.y],polya.y-polya.x);
+            float s_poly = stdvf(&current[polya.x+p.y],polya.y-polya.x);
+            float k_poly = medianf(&current[polya.x+p.y],polya.y-polya.x);
+            printf("%f\t%f\t%f\t",m_poly, s_poly, k_poly);
+        } else {
+            printf(".\t.\t.");
+        }
 
         free(current);
 

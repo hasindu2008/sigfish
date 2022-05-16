@@ -174,6 +174,17 @@ static inline float *signal_in_picoamps(slow5_rec_t *rec){
     return current_signal;
 }
 
+static inline void drna_mismatch(slow5_file_t *sp, int8_t rna){
+    const char *expected = rna ? "rna" : "genomic_dna";
+    const slow5_hdr_t* hdr = sp->header;
+    for(uint32_t  i=0; i < hdr->num_read_groups; i++){
+        char *curr =slow5_hdr_get("experiment_type", i, hdr);
+        if (strcmp(curr, expected)){
+            WARNING("Experiment type mismatch: %s != %s in read group %d. Double check for --rna.", curr, expected, i);
+        }
+    }
+}
+
 
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 

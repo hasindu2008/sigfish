@@ -31,6 +31,8 @@ void stat_hdr();
 void seg_hdr();
 void event_hdr();
 void pa_hdr();
+void jnn_hdr();
+void jnn_func(slow5_rec_t *rec, int8_t rna);
 
 int cmain(int argc, char* argv[], char *mode) {
 
@@ -77,6 +79,8 @@ int cmain(int argc, char* argv[], char *mode) {
         ERROR("cannot open %s. \n", argv[optind]);
         exit(EXIT_FAILURE);
     }
+    drna_mismatch(slow5file, rna);
+
     slow5_rec_t *rec = NULL;
     int ret=0;
 
@@ -91,6 +95,9 @@ int cmain(int argc, char* argv[], char *mode) {
     }else if (strcmp(mode,"seg") == 0){
         if(hdr) seg_hdr();
         func = seg_func;
+    }else if (strcmp(mode,"jnn") == 0){
+        if(hdr) jnn_hdr();
+        func = jnn_func;
     }else if (strcmp(mode,"pa") == 0){
         if(hdr) pa_hdr();
         func = pa_func;
