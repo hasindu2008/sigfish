@@ -61,6 +61,9 @@ typedef struct{
     //int64_t pri_a_to_supp_b;  //primary mapping in truthset is a supplementary mapping in testset
     //int64_t pri_a_to_sec_b;   //primary mapping in testset is a secondary mappings in testset
 
+    int64_t mapq_correct[61];
+    int64_t mapq_incorrect[61];
+
 }eval_stat_t;
 
 KHASH_MAP_INIT_STR(eval_s2a, read_hval_t*)
@@ -193,6 +196,7 @@ eval_hash_t* get_truth(FILE *paffile,eval_stat_t *stat){
         }
 
         mappings_total++;
+        //free_paf_rec(paf);
     }
     stat->truth_rec= mappings_total;
     stat->truth_mapped=kh_size(h);
@@ -258,6 +262,7 @@ void parse_eval(FILE *paffile, eval_hash_t* truth, int8_t sec, eval_stat_t *stat
             read_hval_t *s = kh_value(h, k);
             int i;
             int ret = 0;
+
             for(i=0;i<s->n;i++){
                 if(sec || s->paf[i]->tp==paf->tp){
                     ret = compare(s->paf[i],paf);
@@ -266,13 +271,18 @@ void parse_eval(FILE *paffile, eval_hash_t* truth, int8_t sec, eval_stat_t *stat
                     }
                 }
             }
+            int mapq = paf->mapq;
+            assert(mapq>=0 && mapq<=60);
             if(ret){
                 stat->correct++;
+                stat->mapq_correct[mapq]++;
             }
             else{
                 stat->incorrect++;
+                stat->mapq_incorrect[mapq]++;
             }
         }
+        free_paf_rec(paf);
 
         mappings_total++;
     }
@@ -301,6 +311,17 @@ void print_compare_stat(eval_stat_t *stat){
 #ifdef CONSIDER_SECONDARY
     printf("Primary in 'a' is a secondary in 'b'\t%d\n",stat->pri_a_to_sec_b);
 #endif
+
+    printf("\n#mapq\tcorrect\tincorrect\n");
+    int i;
+    for(i=60;i>=0;i--){
+        int c = stat->mapq_correct[i];
+        int ic = stat->mapq_incorrect[i];
+        if (!(c==0 && ic==0)){
+            printf("%d\t%d\t%d\n",i,c,ic);
+        }
+
+    }
 
 }
 
