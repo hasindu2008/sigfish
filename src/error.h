@@ -97,6 +97,18 @@ void set_log_level(enum sigfish_log_level_opt level);
     } \
 }
 
+#define NULL_CHK(ret) { \
+    if ((ret) == NULL) { \
+        ERROR("NULL returned: %s", strerror(errno)) \
+    } \
+}
+
+#define NEG_CHK(ret) { \
+    if ((ret) < 0) { \
+        ERROR("Negative value returned: %s", strerror(errno)) \
+    } \
+}
+
 #define ASSERT(ret) { \
     if ((ret) == 0){ \
         fprintf(stderr, ERROR_PREFIX "Assertion failed." NO_COLOUR \
