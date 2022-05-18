@@ -333,22 +333,22 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
                 if(start_idx < 0){
                     db->prefix_fail++;
                     LOG_TRACE("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);
-                    start_idx = 0;
-                    end_idx = 0;
-                    db->et[i].n = 0;
+                    start_idx = 50; //fall back to 50 events start
+                    // end_idx = 0;
+                    // db->et[i].n = 0;
                 }
             }
             end_idx = start_idx+core->opt.query_size;
 
-            if (start_idx > n) {
-                LOG_TRACE("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+            if (start_idx +25 > n ) { //min query size 25
+                LOG_TRACE("Read %s is ignored (%ld events < %ld prefix)",db->slow5_rec[i]->read_id, db->et[i].n, start_idx);
                 start_idx = 0;
                 end_idx = 0;
                 db->et[i].n = 0;
                 db->ignored++;
             }
-            if(end_idx > n){
-                LOG_TRACE("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+            else if(end_idx > n){
+                LOG_TRACE("Read %s is too short (%ld events < %ld prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, start_idx+core->opt.query_size);
                 end_idx = db->et[i].n;
                 db->too_short++;
             }
@@ -360,11 +360,13 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
             if (start_idx < 0) {
                 LOG_TRACE("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
                 start_idx = 0;
+                db->too_short++;
             }
             if(end_idx <0 ){
-                WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+                LOG_TRACE("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
                 end_idx = 0;
                 db->et[i].n = 0;
+                db->ignored++;
             }
         }
         db->qstart[i] = start_idx;
