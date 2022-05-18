@@ -129,7 +129,8 @@ int dtw_main(int argc, char* argv[]) {
                 exit(EXIT_FAILURE);
             }
         } else if (c=='v'){
-            opt.verbosity = atoi(optarg);
+            int v = atoi(optarg);
+            set_log_level((enum sigfish_log_level_opt)v);
         } else if (c=='V'){
             fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);
             exit(EXIT_SUCCESS);
@@ -217,7 +218,7 @@ int dtw_main(int argc, char* argv[]) {
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
         fprintf(fp_help,"   --slow5 FILE               read from a slow5 file\n");
-        fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",opt.verbosity);
+        fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
         fprintf(fp_help,"   --version                  print version\n");
 
         fprintf(fp_help,"\nadvanced options:\n");
@@ -278,7 +279,7 @@ int dtw_main(int argc, char* argv[]) {
     //free the databatch
     free_db(db);
 
-    fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
+    fprintf(stderr, "[%s] total entries: %ld\tprefix fail: %ld\tignored: %ld\ttoo short: %ld", __func__,(long)core->total_reads, (long)core->prefix_fail, (long)core->ignored, (long)core->too_short);
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);

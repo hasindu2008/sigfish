@@ -110,7 +110,6 @@ typedef struct {
     int64_t batch_size_bytes;   //max bytes loaded at once: B
 
     int32_t num_thread; //t
-    int8_t verbosity;
     int32_t debug_break;
 
     char *region_str; //the region string in format chr:start-end
@@ -159,7 +158,9 @@ typedef struct {
     //stats
     int64_t sum_bytes;
     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-
+    int64_t prefix_fail; //automatic query start detection failed
+    int64_t ignored; //shorter than the prefix set by user and thus fully ignored
+    int64_t too_short;   //shorter then the prefix+query set by user, still will be mapped the possible part
 
 
 } db_t;
@@ -199,6 +200,9 @@ typedef struct {
     //stats //set by output_db
     int64_t sum_bytes;
     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+    int64_t prefix_fail; //automatic query start detection failed
+    int64_t ignored; //shorter than the prefix set by user and thus fully ignored
+    int64_t too_short;   //shorter then the prefix+query set by user, still will be mapped the possible part
 
     refsynth_t *ref;
 

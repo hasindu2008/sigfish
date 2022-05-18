@@ -195,7 +195,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
         else{ //rna
             uint32_t rlen_heu=query_size*1.5;
             ref_len = (rlen_heu > l+1-kmer_size ? l+1-kmer_size : rlen_heu);
-            fprintf(stderr,"Only %d bases of %d bases in reference sequence will be used\n", ref_len, l);
+            LOG_TRACE("Only %d bases of %d bases in reference sequence will be used\n", ref_len, l);
         }
         //int32_t ref_len = rna ? ((uint32_t)query_size > l+1-kmer_size ? l+1-kmer_size : query_size) : l+1-kmer_size;
         //fprintf(stderr,"%s\t%d\n",seq->name.s,ref_len);
@@ -226,7 +226,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
             }
         }else{ //rna
             if(flag & SIGFISH_INV){ //would be incorrect - have not tested recently
-                fprintf(stderr,"Reversing the reference to be 5' -> 3'\n");
+                VERBOSE("%s","Reversing the reference to be 5' -> 3'\n");
                 // char *f = seq->seq.s;
                 // char *reverse = (char *) malloc(strlen(f)*sizeof(char));
                 // for(int j=0; j<(int)strlen(f); j++){
@@ -252,7 +252,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
                 else{ //if the beginning of query then it is the end of the reference in RNA
                     st = seq->seq.s+l-ref_len-(kmer_size-1);
                 }
-                fprintf(stderr,"%s:%ld-%ld\n",seq->name.s,st-seq->seq.s,st-seq->seq.s+ref_len);
+                LOG_TRACE("%s:%ld-%ld\n",seq->name.s,st-seq->seq.s,st-seq->seq.s+ref_len);
                 for (int j=0; j< ref_len; j++){
                     uint32_t kmer_rank = get_kmer_rank(st+j, kmer_size);
                     ref->forward[i][j] = pore_model[kmer_rank].level_mean;

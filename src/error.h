@@ -13,84 +13,97 @@
 #include <stdio.h>
 #include <string.h>
 
-#define WARN "[%s::WARNING]\033[1;33m "
-#define ERR "[%s::ERROR]\033[1;31m "
-#define CEND "\033[0m\n"
 
-#define STDERR(arg, ...)                                                      \
-    fprintf(stderr, "[%s] " arg "\n", __func__,                        \
-            __VA_ARGS__)
-#define WARNING(arg, ...)                                                      \
-    fprintf(stderr, "[%s::WARNING]\033[1;33m " arg "\033[0m\n", __func__,      \
-            __VA_ARGS__)
-#define ERROR(arg, ...)                                                        \
-    fprintf(stderr, "[%s::ERROR]\033[1;31m " arg "\033[0m\n", __func__,        \
-            __VA_ARGS__)
-#define INFO(arg, ...)                                                         \
-    fprintf(stderr, "[%s::INFO]\033[1;34m " arg "\033[0m\n", __func__,         \
-            __VA_ARGS__)
-#define SUCCESS(arg, ...)                                                      \
-    fprintf(stderr, "[%s::SUCCESS]\033[1;32m " arg "\033[0m\n", __func__,      \
-            __VA_ARGS__)
-#define DEBUG(arg, ...)                                                        \
-    fprintf(stderr,                                                            \
-            "[%s::DEBUG]\033[1;35m Error occured at %s:%d. " arg "\033[0m\n",  \
-            __func__, __FILE__, __LINE__ - 2, __VA_ARGS__)
+#define sigfish_log_level get_log_level()
 
-#define MALLOC_CHK(ret) malloc_chk((void*)ret, __func__, __FILE__, __LINE__ - 1)
-#define F_CHK(ret, filename)                                                   \
-    f_chk((void*)ret, __func__, __FILE__, __LINE__ - 1, filename);
-#define NULL_CHK(ret) null_chk((void*)ret, __func__, __FILE__, __LINE__ - 1)
-#define NEG_CHK(ret) neg_chk(ret, __func__, __FILE__, __LINE__ - 1)
 
-static inline void malloc_chk(void* ret, const char* func, const char* file,
-                              int line) {
-    if (ret != NULL)
-        return;
-    fprintf(
-        stderr,
-        "[%s::ERROR]\033[1;31m Failed to allocate memory : "
-        "%s.\033[0m\n[%s::DEBUG]\033[1;35m Error occured at %s:%d. Try with a small batchsize (-K and/or -B options),"
-        "fewer threads (-t) or skip ultra-long reads (--skip-ultra) to reduce the peak memory."
-        "See https://f5c.page.link/troubleshoot for details.\033[0m\n\n",
-        func, strerror(errno), func, file, line);
-    exit(EXIT_FAILURE);
+
+// the level of verbosity in the log printed to the standard error
+enum sigfish_log_level_opt {
+    LOG_OFF,      // nothing at all
+    LOG_ERR,      // error messages
+    LOG_WARN,     // warning and error messages
+    LOG_INFO,     // information, warning and error messages
+    LOG_VERB,     // verbose, information, warning and error messages
+    LOG_DBUG,     // debugging, verbose, information, warning and error messages
+    LOG_TRAC      // tracing, debugging, verbose, information, warning and error messages
+};
+
+enum sigfish_log_level_opt get_log_level();
+void set_log_level(enum sigfish_log_level_opt level);
+
+#define DEBUG_PREFIX "[DEBUG] %s: " /* TODO function before debug */
+#define VERBOSE_PREFIX "[INFO] %s: "
+#define INFO_PREFIX "[%s::INFO]\033[1;34m "
+#define WARNING_PREFIX "[%s::WARNING]\033[1;33m "
+#define ERROR_PREFIX "[%s::ERROR]\033[1;31m "
+#define NO_COLOUR "\033[0m"
+
+#define LOG_TRACE(msg, ...) { \
+    if (sigfish_log_level >= LOG_TRAC) { \
+        fprintf(stderr, DEBUG_PREFIX msg \
+                " At %s:%d\n", \
+                __func__, __VA_ARGS__, __FILE__, __LINE__ - 1); \
+    } \
 }
 
-static inline void f_chk(void* ret, const char* func, const char* file,
-                         int line, const char* fopen_f) {
-    if (ret != NULL)
-        return;
-    fprintf(
-        stderr,
-        "[%s::ERROR]\033[1;31m Failed to open %s : "
-        "%s.\033[0m\n[%s::DEBUG]\033[1;35m Error occured at %s:%d.\033[0m\n\n",
-        func, fopen_f, strerror(errno), func, file, line);
-    exit(EXIT_FAILURE);
+#define LOG_DEBUG(msg, ...) { \
+    if (sigfish_log_level >= LOG_DBUG) { \
+        fprintf(stderr, DEBUG_PREFIX msg \
+                " At %s:%d\n", \
+                __func__, __VA_ARGS__, __FILE__, __LINE__ - 1); \
+    } \
 }
 
-// Die on error. Print the error and exit if the return value of the previous function NULL
-static inline void null_chk(void* ret, const char* func, const char* file,
-                            int line) {
-    if (ret != NULL)
-        return;
-    fprintf(stderr,
-            "[%s::ERROR]\033[1;31m %s.\033[0m\n[%s::DEBUG]\033[1;35m Error "
-            "occured at %s:%d.\033[0m\n\n",
-            func, strerror(errno), func, file, line);
-    exit(EXIT_FAILURE);
+#define VERBOSE(msg, ...) { \
+    if (sigfish_log_level >= LOG_VERB) { \
+        fprintf(stderr, VERBOSE_PREFIX msg "\n", __func__, __VA_ARGS__); \
+    } \
 }
 
-// Die on error. Print the error and exit if the return value of the previous function is -1
-static inline void neg_chk(int ret, const char* func, const char* file,
-                           int line) {
-    if (ret >= 0)
-        return;
-    fprintf(stderr,
-            "[%s::ERROR]\033[1;31m %s.\033[0m\n[%s::DEBUG]\033[1;35m Error "
-            "occured at %s:%d.\033[0m\n\n",
-            func, strerror(errno), func, file, line);
-    exit(EXIT_FAILURE);
+#define INFO(msg, ...) { \
+    if (sigfish_log_level >= LOG_INFO) { \
+        fprintf(stderr, INFO_PREFIX msg NO_COLOUR "\n", __func__, __VA_ARGS__); \
+    } \
+}
+
+#define WARNING(msg, ...) { \
+    if (sigfish_log_level >= LOG_WARN) { \
+        fprintf(stderr, WARNING_PREFIX msg NO_COLOUR \
+                " At %s:%d\n", \
+                __func__, __VA_ARGS__, __FILE__, __LINE__ - 1); \
+    } \
+}
+
+#define ERROR(msg, ...) { \
+    if (sigfish_log_level >= LOG_ERR) { \
+        fprintf(stderr, ERROR_PREFIX msg NO_COLOUR \
+                " At %s:%d\n", \
+                __func__, __VA_ARGS__, __FILE__, __LINE__ - 1); \
+    } \
+}
+
+#define MALLOC_CHK(ret) { \
+    if ((ret) == NULL) { \
+        MALLOC_ERROR() \
+    } \
+}
+
+#define MALLOC_ERROR() ERROR("Failed to allocate memory: %s", strerror(errno))
+
+#define F_CHK(ret, file) { \
+    if ((ret) == NULL) { \
+        ERROR("Could not to open file %s: %s", file, strerror(errno)) \
+    } \
+}
+
+#define ASSERT(ret) { \
+    if ((ret) == 0){ \
+        fprintf(stderr, ERROR_PREFIX "Assertion failed." NO_COLOUR \
+                " At %s:%d\nExiting.\n", \
+                __func__ , __FILE__, __LINE__ - 1); \
+        exit(EXIT_FAILURE); \
+    } \
 }
 
 #endif

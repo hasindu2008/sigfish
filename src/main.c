@@ -16,6 +16,8 @@
     #include <execinfo.h>
 #endif
 
+extern enum sigfish_log_level_opt sigfish_log_level;
+
 //make the segmentation faults a bit cool
 void sig_handler(int sig) {
 #ifdef HAVE_EXECINFO_H

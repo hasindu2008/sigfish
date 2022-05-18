@@ -20,6 +20,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+enum sigfish_log_level_opt _log_level = LOG_VERB;
 
 /* initialise the core data structure */
 core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realtime0) {
@@ -37,7 +38,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         //determine if .bed
         int region_str_len = strlen(opt.region_str);
         if(region_str_len>=4 && strcmp(&(opt.region_str[region_str_len-4]),".bed")==0 ){
-            STDERR("Fetching the list of regions from file: %s", opt.region_str);
+            VERBOSE("Fetching the list of regions from file: %s", opt.region_str);
             WARNING("%s", "Loading region windows from a bed file is an experimental option and not yet throughly tested.");
             WARNING("%s", "When loading windows from a bed file, output is based on reads that are unclipped. Also, there may be repeated entries when regions overlap.");
             int64_t count=0;
@@ -47,13 +48,13 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
             core->reg_n = count;
         }
         else{
-            STDERR("Limiting to region: %s\n", opt.region_str);
+            VERBOSE("Limiting to region: %s\n", opt.region_str);
         }
     }
 
     core->sf = slow5_open(slow5file,"r");
     if (core->sf == NULL) {
-        STDERR("Error opening SLOW5 file %s\n",slow5file);
+        VERBOSE("Error opening SLOW5 file %s\n",slow5file);
         exit(EXIT_FAILURE);
     }
     drna_mismatch(core->sf, opt.flag & SIGFISH_RNA);
@@ -172,6 +173,9 @@ ret_status_t load_db(core_t* core, db_t* db) {
     db->n_rec = 0;
     db->sum_bytes = 0;
     db->total_reads = 0;
+    db->prefix_fail = 0;
+    db->ignored=0;
+    db->too_short=0;
 
     ret_status_t status={0,0};
     int32_t i = 0;
@@ -300,9 +304,9 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
             if((uint64_t)start >= et.n){
                 start = -1;
             }
-            fprintf(stderr,"%s\tevent:%ld/%ld\traw:%ld/%ld\n",rec->read_id,start,et.n,polya.y ,len_raw_signal);
+            //fprintf(stderr,"%s\tevent:%ld/%ld\traw:%ld/%ld\n",rec->read_id,start,et.n,polya.y ,len_raw_signal);
         } else {
-            fprintf(stderr,"%s\t./%ld\n",rec->read_id,len_raw_signal);
+            //fprintf(stderr,"%s\t./%ld\n",rec->read_id,len_raw_signal);
         }
 
     }
@@ -327,7 +331,8 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
             if(core->opt.prefix_size < 0){
                 start_idx = detect_query_start(db->slow5_rec[i], db->et[i]);
                 if(start_idx < 0){
-                    WARNING("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);
+                    db->prefix_fail++;
+                    LOG_TRACE("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);
                     start_idx = 0;
                     end_idx = 0;
                     db->et[i].n = 0;
@@ -336,14 +341,16 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
             end_idx = start_idx+core->opt.query_size;
 
             if (start_idx > n) {
-                WARNING("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
+                LOG_TRACE("Read %s is ignored (%ld events < %d prefix)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size);
                 start_idx = 0;
                 end_idx = 0;
                 db->et[i].n = 0;
+                db->ignored++;
             }
             if(end_idx > n){
-                WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+                LOG_TRACE("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
                 end_idx = db->et[i].n;
+                db->too_short++;
             }
 
         }
@@ -351,7 +358,7 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
             start_idx = db->et[i].n - core->opt.prefix_size - core->opt.query_size;
             end_idx = db->et[i].n - core->opt.prefix_size;
             if (start_idx < 0) {
-                WARNING("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
+                LOG_TRACE("Read %s is too short (%ld events < %d prefix+query_size)",db->slow5_rec[i]->read_id, db->et[i].n, core->opt.prefix_size+core->opt.query_size);
                 start_idx = 0;
             }
             if(end_idx <0 ){
@@ -670,6 +677,9 @@ void output_db(core_t* core, db_t* db) {
 
     core->sum_bytes += db->sum_bytes;
     core->total_reads += db->total_reads;
+    core->prefix_fail += db->prefix_fail;
+    core->ignored += db->ignored;
+    core->too_short += db->too_short;
 
 
     //core->read_index = core->read_index + db->n_rec;
@@ -725,4 +735,13 @@ void init_opt(opt_t* opt) {
     opt->prefix_size = 50;
     opt->query_size = 250;
 
+}
+
+
+enum sigfish_log_level_opt get_log_level(){
+    return _log_level;
+}
+
+void set_log_level(enum sigfish_log_level_opt level){
+    _log_level = level;
 }
