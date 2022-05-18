@@ -217,7 +217,8 @@ pair_t find_adaptor(slow5_rec_t *rec){
         int start=0;
         int end=0;
 
-        pair_t segs[SIGFISH_SIZE];
+        int seg_c = SIGFISH_SIZE;
+        pair_t *segs = (pair_t *)malloc(sizeof(pair_t)*seg_c);
         int seg_i = 0;
 
         int count = -1;
@@ -237,6 +238,10 @@ pair_t find_adaptor(slow5_rec_t *rec){
                     segs[seg_i-1].y = end;
                 }
                 else{
+                    if(seg_i>=seg_c){
+                        seg_c *= 2;
+                        segs = (pair_t *)realloc(segs,sizeof(pair_t)*seg_c);
+                    }
                     segs[seg_i] = {start,end};
                     seg_i++;
                 }
@@ -261,6 +266,7 @@ pair_t find_adaptor(slow5_rec_t *rec){
         }
 
         free(t);
+        free(segs);
         return p;
     }
     else{
@@ -410,7 +416,8 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
         float stall_len = 1.0;
 
         // segments [(start, stop)]
-        pair_t segs[SIGFISH_SIZE];
+        int seg_c = SIGFISH_SIZE;
+        pair_t *segs = (pair_t *)malloc(sizeof(pair_t)*seg_c);
         int seg_i = 0;
 
         for(int i=0; i<nsample; i++){
@@ -445,6 +452,10 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
                         segs[seg_i-1].y = end;
                     }
                     else{
+                        if(seg_i>=seg_c){
+                            seg_c *= 2;
+                            segs = (pair_t *)realloc(segs,sizeof(pair_t)*seg_c);
+                        }
                         segs[seg_i] = {start,end};
                         seg_i++;
                     }
@@ -462,6 +473,7 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
         }
 
         free(sig);
+
         // fprintf(stderr,"%d\t",seg_i);
         // for(int i=0; i<seg_i; i++){
         //     if (i==seg_i-1){
@@ -476,6 +488,7 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
             p = segs[0];
         }
 
+        free(segs);
 
     }
     return p;
