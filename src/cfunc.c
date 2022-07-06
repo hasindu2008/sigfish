@@ -162,18 +162,32 @@ int16_t mediani16(int16_t* x, int n) {
 float *rolling_window(float *x, int n, int w) {
     // int i = 0;
 
+    assert(w<n);
+
     float *t = (float*)malloc(sizeof(float)*(n-w));
     MALLOC_CHK(t);
-    for(int i=0; i<n-w; i++){ //can remove later with a single var that inits to 0
-        t[i] = 0.0;
+
+    // for(int i=0;i<n-w;i++){
+    //     float tt = 0.0;
+    //     for(int j=0;j<w;j++){
+    //         tt += x[i+j];
+    //     }
+    //     t[i]=tt/w;
+    // }
+
+
+    float tt = 0.0;
+    for(int i=0;i<w;i++){
+        tt += x[i];
+    }
+    t[0]=tt/w;
+    for(int i=1;i<n-w;i++){
+        tt -= x[i-1];
+        assert(i+w-1<n);
+        tt += x[i+w-1];
+        t[i]=tt/w;
     }
 
-    for(int i=0;i<n-w;i++){
-        for(int j=0;j<w;j++){
-            t[i] += x[i+j];
-        }
-        t[i]/=w;
-    }
 
     // for(int i=0; i<n-w; i++){ //can remove later with a single var that inits to 0
     //     fprintf(stderr,"%f\t",t[i]);
