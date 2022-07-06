@@ -38,6 +38,13 @@
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
 
+
+//linear segment alignment record
+#define LSAR_TJUMP 'J'      //jump in the target
+#define LSAR_QJUMP 'j'      //jump in the query
+#define LSAR_TMATCH 'M'      //match in the target
+#define LSAR_QMATCH 'm'   //match in the query
+
 /* a single signal-space event : adapted from taken from scrappie */
 typedef struct {
     uint64_t start;

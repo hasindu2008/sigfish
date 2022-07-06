@@ -55,6 +55,7 @@ int print_usage(FILE *fp_help){
     fprintf(fp_help,"         seg       segments such as adaptor and polyA\n");
     fprintf(fp_help,"         jnn       print all segments found using james' neural network\n");
     fprintf(fp_help,"         eval      evaluate mappings\n");
+    fprintf(fp_help,"         pa        print raw signal in pico-amperes\n");
     if(fp_help==stderr){
         exit(EXIT_FAILURE);
     }

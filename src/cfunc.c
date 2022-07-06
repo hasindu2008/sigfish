@@ -13,24 +13,52 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+extern int expanded;
+
 float ks_ksmall_float(size_t, float*, size_t);
 int16_t ks_ksmall_int16_t(size_t, int16_t*, size_t);
 
 void print_events(char *rid, event_table et){
 
-    uint32_t j = 0;
-    for (j = 0; j < et.n; j++) {
-        printf("%s\t%d\t%ld\t%d\t%f\t%f\n", rid, j, et.event[j].start,
-                (int)et.event[j].length, et.event[j].mean,
-                et.event[j].stdv);
+    if(!expanded){
+        printf("%s\t%ld\t", rid, et.n);
+        uint32_t j = 0;
+        uint64_t ci = 0;
+        uint64_t mi = 0;
+        for (j = 0; j < et.n; j++) {
+            ci += (mi =  et.event[j].start - ci);
+            if(mi) printf("%dj",(int)mi);
+            ci += (mi = et.event[j].length);
+            if(mi) printf("%dm",(int)mi);
+
+        }
+
+        for (j = 0; j < et.n; j++) {
+            printf("%ld,%d,%f,%f;", et.event[j].start,
+                    (int)et.event[j].length, et.event[j].mean,
+                    et.event[j].stdv);
+        }
+        printf("\n");
+    } else {
+        uint32_t j = 0;
+        for (j = 0; j < et.n; j++) {
+            printf("%s\t%d\t%ld\t%d\t%f\t%f\n", rid, j, et.event[j].start,
+                    (int)et.event[j].length, et.event[j].mean,
+                    et.event[j].stdv);
+        }
+        printf("\n");
     }
-    printf("\n");
 
 }
 
 void event_hdr(){
-    printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");
+    if(!expanded){
+        printf("read_id\tnum_event\tLSAR\tevent_start,event_len,event_mean,event_std;...\n");
+    } else {
+        printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");
+    }
 }
+
 
 void event_func(slow5_rec_t *rec, int8_t rna){
 
@@ -38,6 +66,8 @@ void event_func(slow5_rec_t *rec, int8_t rna){
     //trim(current_signal, rec->len_raw_signal);
 
     event_table et = getevents(rec->len_raw_signal, current_signal, rna);
+
+
     print_events(rec->read_id,et);
 
     free(current_signal);
@@ -360,12 +390,18 @@ pair_t jnn(slow5_rec_t *rec){
         free(sig);
 
         printf("%d\t",seg_i);
+
+        uint64_t ci = 0;
+        uint64_t mi = 0;
         for(int i=0; i<seg_i; i++){
-            if (i==seg_i-1){
-                printf("%ld,%ld",segs[i].x,segs[i].y);
-            }else{
-                printf("%ld,%ld\t",segs[i].x,segs[i].y);
-            }
+            ci += (mi = segs[i].x - ci);
+            if(mi) printf("%dj",(int)mi);
+            ci += (mi = segs[i].y - ci);
+            if(mi) printf("%dm",(int)mi);
+        }
+        printf("\t");
+        for(int i=0; i<seg_i; i++){
+            printf("%ld,%ld;",segs[i].x,segs[i].y);
         }
 
         if(seg_i){
@@ -388,7 +424,7 @@ void jnn_func(slow5_rec_t *rec, int8_t rna){
 
 }
 void jnn_hdr(){
-    printf("read_id\tlen_raw_signal\tnum_seg\tseg_st0,seg_end0,seg_st1,seg_end1,....\n");
+    printf("read_id\tlen_raw_signal\tnum_seg\tLSAR\tseg_st0,seg_end0;seg_st1,seg_end1;....\n");
 }
 
 pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
