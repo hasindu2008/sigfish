@@ -658,9 +658,9 @@ void output_db(core_t* core, db_t* db) {
             float block_len = db->aln[i].pos_end - db->aln[i].pos_st;
             float residue = block_len - db->aln[i].score*block_len/query_size ;
 
-            if(db->aln[i].score>70){
-                continue;
-            }
+            // if(db->aln[i].score>70){
+            //     continue;
+            // }
 
             printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
             printf("%d\t%ld\t%ld\t", db->et[i].n, start_idx,end_idx); // Query sequence length, start, end (in terms of events)
