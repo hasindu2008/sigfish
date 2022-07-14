@@ -86,4 +86,4 @@ test/ecoli_2kb_region/reads.fasta.index.readdb
 /test/*.gzi
 /test/*.index
 /*.paf
-
+/test/hu

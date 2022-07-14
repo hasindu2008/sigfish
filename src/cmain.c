@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int expanded = 0;
+int compact = 0;
 
 static struct option long_options[] = {
     {"verbose", required_argument, 0, 'v'},        //0 verbosity level [1]
@@ -37,7 +37,7 @@ void jnn_func(slow5_rec_t *rec, int8_t rna);
 
 int cmain(int argc, char* argv[], char *mode) {
 
-    const char* optstring = "o:hVne";
+    const char* optstring = "o:hVnc";
 
     int longindex = 0;
     int32_t c = -1;
@@ -55,10 +55,10 @@ int cmain(int argc, char* argv[], char *mode) {
             fp_help = stdout;
         } else if (c=='n'){
             hdr = 0;
-        } else if (c=='e'){
-            expanded = 1;
-        } else if (c == 0 && longindex == 4){ //if RNA
-            rna = 1;
+        } else if (c=='c'){
+            compact = 1;
+        // } else if (c == 0 && longindex == 4){ //if RNA
+        //     rna = 1;
         }
     }
 
@@ -69,9 +69,9 @@ int cmain(int argc, char* argv[], char *mode) {
         fprintf(fp_help,"\nbasic options:\n");
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   -n                         supress header\n");
-        fprintf(fp_help,"   -e                         expanded (bulky) output\n");
+        fprintf(fp_help,"   -c                         compact output\n");
         fprintf(fp_help,"   --version                  print version\n");
-        fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
+        //fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
@@ -83,7 +83,7 @@ int cmain(int argc, char* argv[], char *mode) {
         ERROR("cannot open %s. \n", argv[optind]);
         exit(EXIT_FAILURE);
     }
-    drna_mismatch(slow5file, rna);
+    rna = drna_detect(slow5file);
 
     slow5_rec_t *rec = NULL;
     int ret=0;

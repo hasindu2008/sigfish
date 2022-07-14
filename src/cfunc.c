@@ -13,14 +13,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-extern int expanded;
+extern int compact;
 
 float ks_ksmall_float(size_t, float*, size_t);
 int16_t ks_ksmall_int16_t(size_t, int16_t*, size_t);
 
 void print_events(char *rid, event_table et){
 
-    if(!expanded){
+    if(compact){
         printf("%s\t%ld\t", rid, et.n);
         uint32_t j = 0;
         uint64_t ci = 0;
@@ -52,7 +52,7 @@ void print_events(char *rid, event_table et){
 }
 
 void event_hdr(){
-    if(!expanded){
+    if(compact){
         printf("read_id\tnum_event\tLSAR\tevent_start,event_len,event_mean,event_std;...\n");
     } else {
         printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");

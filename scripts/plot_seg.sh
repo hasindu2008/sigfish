@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#scripts/plot_seg.sh 00213403-4297-4f03-8412-3cc8b9cb845a test/sequin_reads.blow5
+
 # 00213403-4297-4f03-8412-3cc8b9cb845a
 # 00acf97d-7374-4587-ae97-a6605281cbbf
 # 01046039-3547-46be-bfec-9884cd9ecb7d
@@ -11,14 +13,26 @@
 # 03239181-a3ce-41ba-869d-98d83b35c177
 
 set -x
-read_id=$1
+set -e
 
-slow5tools get --to slow5 test/sequin_reads.blow5 $1 | grep -v '^[#@]' | awk '{print $8}' > $1.txt
-./sigfish seg test/sequin_reads.blow5 $1 -n |  cut -f 3,4,5,6 | sed 's/\t\./\tNaN/g' | tr ',' '\t' > $1.seg.txt
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <read_id> <file.blow5>"
+    exit 1
+fi
+
+FILE=${2}
+read_id=${1}
+
+#FILE=test/sequin_reads.blow5
+#FILE="/mnt/c/Users/hasin/Dropbox (Garvan)/ongoing/sigfish/collapse_ref/250_events_250_ref_analysis_deep/extracted_belong_1_bad_map.blow5"
+rm -f $read_id.txt $read_id.seg.txt $read_id.fig
+
+slow5tools get --to slow5 "$FILE" $read_id | grep -v '^[#@]' | awk '{print $8}' > $read_id.txt
+./sigfish seg "$FILE" $read_id -n |  cut -f 3,4,5,6 | sed 's/\t\./\tNaN/g' | tr ',' '\t' > $read_id.seg.txt
 
 matlab.exe -nodisplay -nosplash -nodesktop -r "
-a=dlmread('$1.txt'); x=dlmread('$1.seg.txt');
+a=dlmread('$read_id.txt'); x=dlmread('$read_id.seg.txt');
 y=zeros(size(x))+1200;
-plot(a); hold on; xlabel('sample index'), ylabel('raw signal value'); stem(x,y); legend('raw signal','jnn'); savefig('$1.fig');
+plot(a); hold on; xlabel('sample index'), ylabel('raw signal value'); stem(x,y); legend('raw signal','jnn'); title('$read_id'); savefig('$read_id.fig');
 "
 
