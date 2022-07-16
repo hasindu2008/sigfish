@@ -16,8 +16,8 @@
 
 
 static struct option long_options[] = {
-    {"slow5", required_argument, 0, 's'},          //0 SLOW5 file
-    {"genome", required_argument, 0, 'g'},         //1 reference genome
+    {"slow5", required_argument, 0, 's'},          //0 SLOW5 file //removed can be reused
+    {"genome", required_argument, 0, 'g'},         //1 reference genome //removed can be reused
     {"threads", required_argument, 0, 't'},        //2 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //3 batchsize - number of reads loaded at once [512]
     {"max-bytes", required_argument, 0, 'B'},      //4 batchsize - number of bytes loaded at once
@@ -54,7 +54,30 @@ static inline int64_t mm_parse_num(const char* str) //taken from minimap2
     return (int64_t)(x + .499);
 }
 
+static inline void print_help_msg(FILE *fp_help, opt_t opt){
+    fprintf(fp_help,"Usage: sigfish dtw [OPTIONS] genome.fa reads.blow5\n");
+    fprintf(fp_help,"\nbasic options:\n");
+    fprintf(fp_help,"   -w STR                     limit processing to a genomic region specified as chr:start-end or a list of regions in a .bed file\n");
+    fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
+    fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
+    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
+    fprintf(fp_help,"   -h                         help\n");
+    fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
+    fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
+    fprintf(fp_help,"   --version                  print version\n");
 
+    fprintf(fp_help,"\nadvanced options:\n");
+    fprintf(fp_help,"   --kmer-model FILE          custom nucleotide k-mer model file (format similar to test/r9-models/r9.4_450bps.nucleotide.6mer.template.model)\n");
+    fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
+    fprintf(fp_help,"   -q INT                     the number of events in query signal to align [%d]\n",opt.query_size);
+    fprintf(fp_help,"   -p INT                     the number of events to trim at query signal start [%d]\n",opt.prefix_size);
+    fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
+    fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
+    fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
+    fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
+    fprintf(fp_help,"   --full-ref                 map to the full reference\n");
+    fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning\n");
+}
 
 //parse yes or no arguments : taken from minimap2
 static inline void yes_or_no(opt_t* opt, uint64_t flag, int long_idx,
@@ -89,7 +112,7 @@ int dtw_main(int argc, char* argv[]) {
 
     //signal(SIGSEGV, sig_handler);
 
-    const char* optstring = "s:p:q:g:t:B:K:v:o:w:hV";
+    const char* optstring = "p:q:t:B:K:v:o:w:hV";
 
     int longindex = 0;
     int32_t c = -1;
@@ -104,11 +127,7 @@ int dtw_main(int argc, char* argv[]) {
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
-        if (c == 's') {
-            slow5file = optarg;
-        } else if (c == 'g') {
-            fastafile = optarg;
-        } else if (c == 'w') {
+        if (c == 'w') {
             opt.region_str = optarg;
         } else if (c == 'B') {
             opt.batch_size_bytes = mm_parse_num(optarg);
@@ -176,6 +195,17 @@ int dtw_main(int argc, char* argv[]) {
         }
     }
 
+    // No arguments given
+    if (argc - optind != 2 || fp_help == stdout) {
+        print_help_msg(fp_help, opt);
+        if(fp_help == stdout){
+            exit(EXIT_SUCCESS);
+        }
+        exit(EXIT_FAILURE);
+    }
+    fastafile = argv[optind];
+    slow5file = argv[optind+1];
+
     if (!(opt.flag & SIGFISH_RNA)){ //dna
         if(opt.flag & SIGFISH_DTW){
             ERROR("%s","DTW is only available for RNA.");
@@ -208,31 +238,7 @@ int dtw_main(int argc, char* argv[]) {
     }
 
     if (slow5file == NULL || fastafile == NULL || fp_help == stdout) {
-        fprintf(fp_help,"Usage: sigfish [OPTIONS] -s reads.slow5 -g genome.fa\n");
-        fprintf(fp_help,"\nbasic options:\n");
-        fprintf(fp_help,"   -g FILE                    reference genome\n");
-        fprintf(fp_help,"   -w STR                     limit processing to a genomic region specified as chr:start-end or a list of regions in a .bed file\n");
-        fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
-        fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
-        fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
-        fprintf(fp_help,"   -h                         help\n");
-        fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
-        fprintf(fp_help,"   --slow5 FILE               read from a slow5 file\n");
-        fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
-        fprintf(fp_help,"   --version                  print version\n");
-
-        fprintf(fp_help,"\nadvanced options:\n");
-        fprintf(fp_help,"   --kmer-model FILE          custom nucleotide k-mer model file (format similar to test/r9-models/r9.4_450bps.nucleotide.6mer.template.model)\n");
-        fprintf(fp_help,"   --rna                      the dataset is direct RNA\n");
-        fprintf(fp_help,"   -q INT                     the number of events in query signal to align [%d]\n",opt.query_size);
-        fprintf(fp_help,"   -p INT                     the number of events to trim at query signal start [%d]\n",opt.prefix_size);
-        fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
-        fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
-        fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
-        fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
-        fprintf(fp_help,"   --full-ref                 map to the full reference\n");
-        fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning\n");
-
+        print_help_msg(fp_help, opt);
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }

@@ -26,7 +26,7 @@ read_id=${1}
 
 rm -f ${read_id}.pa.txt
 
-./sigfish pa "$FILE" ${read_id} |  cut -f 3 | tail -n +2 | tr ',' '\t' > ${read_id}.pa.txt
+./sigfish pa -n "$FILE" ${read_id} |  cut -f 3 | tr ',' '\t' > ${read_id}.pa.txt
 
 matlab.exe -nodisplay -nosplash -nodesktop -r "
 a=dlmread('${read_id}.pa.txt');

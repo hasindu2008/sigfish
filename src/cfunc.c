@@ -18,32 +18,46 @@ extern int compact;
 float ks_ksmall_float(size_t, float*, size_t);
 int16_t ks_ksmall_int16_t(size_t, int16_t*, size_t);
 
-void print_events(char *rid, event_table et){
+void print_events(char *rid, event_table et, slow5_rec_t *rec){
 
     if(compact){
-        printf("%s\t%ld\t", rid, et.n);
-        uint32_t j = 0;
-        uint64_t ci = 0;
-        uint64_t mi = 0;
-        for (j = 0; j < et.n; j++) {
-            ci += (mi =  et.event[j].start - ci);
-            if(mi) printf("%dj",(int)mi);
-            ci += (mi = et.event[j].length);
-            if(mi) printf("%dm",(int)mi);
-
+        printf("%s\t%ld\t", rid, rec->len_raw_signal);
+        if(et.n){
+            assert(et.event[et.n-1].start < rec->len_raw_signal);
+            assert(et.event[et.n-1].start+(int)et.event[et.n-1].length <= rec->len_raw_signal);
+            printf("%ld\t%ld\t", et.event[0].start, et.event[et.n-1].start+(int)et.event[et.n-1].length);
+            printf("%ld\t", et.n);
+            uint32_t j = 0;
+            uint64_t ci = et.event[0].start; //current index
+            uint64_t mi = 0;
+            for (j = 0; j < et.n; j++) {
+                ci += (mi =  et.event[j].start - ci);
+                //if(mi) printf("%d;",(int)mi);
+                assert(mi==0); //do not support jumps at the moment
+                ci += (mi = et.event[j].length);
+                if(mi) {
+                    if (j<et.n-1) printf("%d,",(int)mi); else printf("%d",(int)mi);
+                }
+            }
+        }
+        else{
+            printf(".\t.\t.\t.");
         }
 
-        for (j = 0; j < et.n; j++) {
-            printf("%ld,%d,%f,%f;", et.event[j].start,
-                    (int)et.event[j].length, et.event[j].mean,
-                    et.event[j].stdv);
-        }
+
+        //printf("\t");
+
+        // for (j = 0; j < et.n; j++) {
+        //     printf("%ld,%d,%f,%f;", et.event[j].start,
+        //             (int)et.event[j].length, et.event[j].mean,
+        //             et.event[j].stdv);
+        // }
         printf("\n");
     } else {
         uint32_t j = 0;
         for (j = 0; j < et.n; j++) {
-            printf("%s\t%d\t%ld\t%d\t%f\t%f\n", rid, j, et.event[j].start,
-                    (int)et.event[j].length, et.event[j].mean,
+            printf("%s\t%d\t%ld\t%ld\t%f\t%f\n", rid, j, et.event[j].start,
+                    et.event[j].start+(int)et.event[j].length, et.event[j].mean,
                     et.event[j].stdv);
         }
         printf("\n");
@@ -53,9 +67,9 @@ void print_events(char *rid, event_table et){
 
 void event_hdr(){
     if(compact){
-        printf("read_id\tnum_event\tLSAR\tevent_start,event_len,event_mean,event_std;...\n");
+        printf("read_id\tlen_raw_signal\traw_start\traw_end\tnum_event\tevents\n");
     } else {
-        printf("read_id\tevent_idx\tevent_start\tevent_len\tevent_mean\tevent_std\n");
+        printf("read_id\tevent_idx\traw_start\traw_end\tevent_mean\tevent_std\n");
     }
 }
 
@@ -68,7 +82,7 @@ void event_func(slow5_rec_t *rec, int8_t rna){
     event_table et = getevents(rec->len_raw_signal, current_signal, rna);
 
 
-    print_events(rec->read_id,et);
+    print_events(rec->read_id,et, rec);
 
     free(current_signal);
     free(et.event);

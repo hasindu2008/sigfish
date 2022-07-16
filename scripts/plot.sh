@@ -35,7 +35,7 @@ echo "0 0" > ${read_id}.eventalign.txt
 
 matlab.exe -nodisplay -nosplash -nodesktop -minimize -r "
 a=dlmread('${read_id}.txt'); b=dlmread('${read_id}.events.txt');
-startidx=b(:,1)+1; endidx=b(:,2)+startidx-1;
+startidx=b(:,1)+1; endidx=b(:,2);
 avg=zeros(length(a),1);
 for j=1:length(startidx)
     avg(startidx(j):endidx(j))=mean(a(startidx(j):endidx(j)));
