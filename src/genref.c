@@ -14,69 +14,12 @@
 
 #include "sigfish.h"
 #include "error.h"
+#include "ref.h"
 
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
 //#define NORMALISE_ALL 1
-
-//todo : can make more efficient using bit encoding
-static inline uint32_t get_rank(char base) {
-    if (base == 'A' || base == 'a') { //todo: do we neeed simple alpha?
-        return 0;
-    } else if (base == 'C' || base == 'c') {
-        return 1;
-    } else if (base == 'G' || base == 'g') {
-        return 2;
-    } else if (base == 'T' || base == 't') {
-        return 3;
-    } else {
-        WARNING("A None ACGT base found : %c", base);
-        return 0;
-    }
-}
-
-// return the lexicographic rank of the kmer amongst all strings of
-// length k for this alphabet
-static inline uint32_t get_kmer_rank(const char* str, uint32_t k) {
-    //uint32_t p = 1;
-    uint32_t r = 0;
-
-    // from last base to first
-    for (uint32_t i = 0; i < k; ++i) {
-        //r += rank(str[k - i - 1]) * p;
-        //p *= size();
-        r += get_rank(str[k - i - 1]) << (i << 1);
-    }
-    return r;
-}
-
-static inline char complement(char c){
-    char r;
-    switch (c){
-        case 'A':
-        case 'a':
-            r='T';
-            break;
-        case 'C':
-        case 'c':
-            r='G';
-            break;
-        case 'G':
-        case 'g':
-            r='C';
-            break;
-        case 'T':
-        case 't':
-            r='A';
-            break;
-        default:
-            r='T';
-            break;
-    }
-    return r;
-}
-
 
 static inline void normalise(float *rawptr, uint64_t n){
 

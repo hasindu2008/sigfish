@@ -23,6 +23,7 @@ OBJ = $(BUILD_DIR)/main.o \
 	  $(BUILD_DIR)/cfunc.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/eval.o \
+	  $(BUILD_DIR)/sim.o \
 
 PREFIX = /usr/local
 VERSION = `git describe --tags`
@@ -58,7 +59,7 @@ $(BUILD_DIR)/model.o: src/model.c src/model.h  src/misc.h
 $(BUILD_DIR)/cdtw.o: src/cdtw.c src/cdtw.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
-$(BUILD_DIR)/genref.o: src/genref.c
+$(BUILD_DIR)/genref.o: src/genref.c src/ref.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
 $(BUILD_DIR)/cmain.o: src/cmain.c
@@ -71,6 +72,9 @@ $(BUILD_DIR)/misc.o: src/misc.c
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
 $(BUILD_DIR)/eval.o: src/eval.c
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
+
+$(BUILD_DIR)/sim.o: src/sim.c src/ref.h src/misc.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
 slow5lib/lib/libslow5.a:
