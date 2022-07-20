@@ -15,10 +15,6 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define DIGITISATION 8192
-#define SAMPLE_RATE 4000
-#define BASES_PER_SECOND 450
-
 typedef struct{
     char **ref_names;
     int32_t *ref_lengths;
@@ -26,14 +22,65 @@ typedef struct{
     int num_ref;
 } ref_t;
 
+
+typedef struct{
+    double m;
+    double s;
+    int64_t x;
+} nrng_t;
+
+typedef struct {
+    double digitisation;
+    double sample_rate;
+    double bases_per_second;
+    double range;
+} profile_t;
+
+profile_t minion_prof = {8192, 4000, 450, 1402.882324};
+profile_t prom_prof = {2048, 4000, 450, 748.5801};
+
+typedef struct {
+    nrng_t *rand_amp;
+    nrng_t *rand_time;
+    nrng_t *rand_rlen;
+    profile_t profile;
+} core_sim_t;
+
+
+static nrng_t* init_nrng(int64_t seed, double mean, double std){
+    nrng_t *rng = (nrng_t *)malloc(sizeof(nrng_t));
+    rng->m = mean;
+    rng->s = std;
+    rng->x = seed;
+    return rng;
+}
+static void free_nrng(nrng_t *rng){
+    free(rng);
+}
+
+static double rng(nrng_t *r){
+    int64_t x = r->x;
+    int64_t x_new = (16807 * (x % 127773)) - (2836 * (x / 127773));
+    if (x_new > 0) x = x_new; else x = x_new + 2147483647;
+    r->x = x_new;
+    return (double)x/2147483647;
+}
+
+static double nrng(nrng_t *r){
+    double u = 0.0;
+    double t = 0.0;
+    while (u == 0.0) u = rng(r);
+    while (t == 0.0) t = 2.0 * 3.14159265 * rng(r);
+    double x = sqrt(-2.0 * log(u)) * cos(t);
+    return ((x * r->s) + r->m);
+}
+
 static struct option long_options[] = {
     {"verbose", required_argument, 0, 'v'},        //0 verbosity level [1]
     {"help", no_argument, 0, 'h'},                 //1
     {"version", no_argument, 0, 'V'},              //2
     {"output",required_argument, 0, 'o'},          //3 output to a file [stdout]
     {0, 0, 0, 0}};
-
-
 
 static ref_t *load_ref(const char *genome){
 
@@ -179,15 +226,15 @@ static void set_header_aux_fields(slow5_file_t *sp){
 
 }
 
-static void set_record_primary_fields(slow5_rec_t *slow5_record, char *read_id, double offset, double range, int64_t len_raw_signal, int16_t *raw_signal){
+static void set_record_primary_fields(profile_t *profile, slow5_rec_t *slow5_record, char *read_id, double offset, double range, int64_t len_raw_signal, int16_t *raw_signal){
 
     slow5_record -> read_id = read_id;
     slow5_record-> read_id_len = strlen(slow5_record -> read_id);
     slow5_record -> read_group = 0;
-    slow5_record -> digitisation = DIGITISATION;
+    slow5_record -> digitisation = profile->digitisation;
     slow5_record -> offset = offset;
     slow5_record -> range = range;
-    slow5_record -> sampling_rate = SAMPLE_RATE;
+    slow5_record -> sampling_rate = profile->sample_rate;
     slow5_record -> len_raw_signal = len_raw_signal;
     slow5_record -> raw_signal = raw_signal;
 
@@ -227,27 +274,39 @@ static void set_record_aux_fields(slow5_rec_t *slow5_record, slow5_file_t *sp, d
 }
 
 
-int16_t *gen_sig(const char *read, int32_t len, model_t *pore_model, uint32_t kmer_size, double *range, double *offset, int64_t *len_raw_signal){
+int16_t *gen_sig(profile_t *profile, const char *read, int32_t len, model_t *pore_model, uint32_t kmer_size, double *range, double *offset, int64_t *len_raw_signal){
     int64_t n_kmers = len-kmer_size+1;
     int64_t n=0;
-    int64_t c = n_kmers * SAMPLE_RATE / BASES_PER_SECOND;
+    int sps = round((profile->sample_rate)/(double)(profile->bases_per_second));
+    int64_t c = n_kmers * sps;
     int16_t *raw_signal = (int16_t *)malloc(c*sizeof(int16_t));
     *offset = 4;
-    *range = 1402.882324;
+    *range = profile->range;
     for (int i=0; i< n_kmers; i++){
         uint32_t kmer_rank = get_kmer_rank(read+i, kmer_size);
         float s = pore_model[kmer_rank].level_mean;
-        for(int j=0; j<SAMPLE_RATE/BASES_PER_SECOND; j++){
+        for(int j=0; j<sps; j++){
             if(n==c){
                 c *= 2;
                 raw_signal = (int16_t *)realloc(raw_signal, c*sizeof(int16_t));
             }
-            raw_signal[n] = s*DIGITISATION/(*range)-(*offset);
+            raw_signal[n] = s*(profile->digitisation)/(*range)-(*offset);
             n++;
         }
     }
     *len_raw_signal = n;
     return raw_signal;
+}
+
+
+static core_sim_t *init_core(){
+    core_sim_t *core = (core_sim_t *)malloc(sizeof(core_sim_t));
+    core->profile = minion_prof;
+    return core;
+}
+
+void free_core(core_sim_t *core){
+    free(core);
 }
 
 int sim_main(int argc, char* argv[]) {
@@ -311,6 +370,8 @@ int sim_main(int argc, char* argv[]) {
     double offset = 0;
     int64_t len_raw_signal =0;
 
+    core_sim_t *core = init_core();
+
     for(int i=0;i<n;i++){
 
         slow5_rec_t *slow5_record = slow5_rec_init();
@@ -318,7 +379,7 @@ int sim_main(int argc, char* argv[]) {
             fprintf(stderr,"Could not allocate space for a slow5 record.");
             exit(EXIT_FAILURE);
         }
-        int16_t *raw_signal =gen_sig(ref->ref_seq[0], ref->ref_lengths[0], model, kmer_size, &range, &offset, &len_raw_signal);
+        int16_t *raw_signal =gen_sig(&core->profile, ref->ref_seq[0], ref->ref_lengths[0], model, kmer_size, &range, &offset, &len_raw_signal);
 
         char *read_id= (char *)malloc(sizeof(char)*(1000));
         sprintf(read_id,"read_%d",i);
@@ -326,7 +387,7 @@ int sim_main(int argc, char* argv[]) {
         printf("%s\n",ref->ref_seq[0]);
 
 
-        set_record_primary_fields(slow5_record, read_id, 6,140, len_raw_signal, raw_signal);
+        set_record_primary_fields(&core->profile, slow5_record, read_id, 6,140, len_raw_signal, raw_signal);
         set_record_aux_fields(slow5_record, sp, median_before, i, n_samples);
         n_samples+=len_raw_signal;
 
@@ -342,6 +403,7 @@ int sim_main(int argc, char* argv[]) {
 
     }
 
+    free_core(core);
     free(model);
     slow5_close(sp);
     free_ref(ref);
