@@ -16,6 +16,8 @@
 KSEQ_INIT(gzFile, gzread)
 
 #define DIGITISATION 8192
+#define SAMPLE_RATE 4000
+#define BASES_PER_SECOND 450
 
 typedef struct{
     char **ref_names;
@@ -111,6 +113,16 @@ static void set_header_attributes(slow5_file_t *sp){
         fprintf(stderr,"Error adding asic_id attribute\n");
         exit(EXIT_FAILURE);
     }
+    //add another header group attribute called asic_id
+    if (slow5_hdr_add("exp_start_time", header) < 0){
+        fprintf(stderr,"Error adding asic_id attribute\n");
+        exit(EXIT_FAILURE);
+    }
+    //add another header group attribute called flow_cell_id
+    if (slow5_hdr_add("flow_cell_id", header) < 0){
+        fprintf(stderr,"Error adding flow_cell_id attribute\n");
+        exit(EXIT_FAILURE);
+    }
 
     //set the run_id attribute to "run_0" for read group 0
     if (slow5_hdr_set("run_id", "run_0", 0, header) < 0){
@@ -120,6 +132,16 @@ static void set_header_attributes(slow5_file_t *sp){
     //set the asic_id attribute to "asic_0" for read group 0
     if (slow5_hdr_set("asic_id", "asic_id_0", 0, header) < 0){
         fprintf(stderr,"Error setting asic_id attribute in read group 0\n");
+        exit(EXIT_FAILURE);
+    }
+    //set the exp_start_time attribute to "2022-07-20T00:00:00Z" for read group 0
+    if (slow5_hdr_set("exp_start_time", "2022-07-20T00:00:00Z", 0, header) < 0){
+        fprintf(stderr,"Error setting exp_start_time attribute in read group 0\n");
+        exit(EXIT_FAILURE);
+    }
+    //set the flow_cell_id attribute to "FAN00000" for read group 0
+    if (slow5_hdr_set("flow_cell_id", "FAN00000", 0, header) < 0){
+        fprintf(stderr,"Error setting flow_cell_id attribute in read group 0\n");
         exit(EXIT_FAILURE);
     }
 
@@ -165,7 +187,7 @@ static void set_record_primary_fields(slow5_rec_t *slow5_record, char *read_id, 
     slow5_record -> digitisation = DIGITISATION;
     slow5_record -> offset = offset;
     slow5_record -> range = range;
-    slow5_record -> sampling_rate = 4000;
+    slow5_record -> sampling_rate = SAMPLE_RATE;
     slow5_record -> len_raw_signal = len_raw_signal;
     slow5_record -> raw_signal = raw_signal;
 
@@ -201,20 +223,30 @@ static void set_record_aux_fields(slow5_rec_t *slow5_record, slow5_file_t *sp, d
         exit(EXIT_FAILURE);
     }
 
+
 }
 
 
-int16_t *gen_sig(const char *read, int32_t len, model_t *pore_model, uint32_t kmer_size, double *range, double *offset){
-    int64_t len_raw_signal = len-kmer_size+1;
-    int16_t *raw_signal = (int16_t *)malloc(len_raw_signal*sizeof(int16_t));
+int16_t *gen_sig(const char *read, int32_t len, model_t *pore_model, uint32_t kmer_size, double *range, double *offset, int64_t *len_raw_signal){
+    int64_t n_kmers = len-kmer_size+1;
+    int64_t n=0;
+    int64_t c = n_kmers * SAMPLE_RATE / BASES_PER_SECOND;
+    int16_t *raw_signal = (int16_t *)malloc(c*sizeof(int16_t));
     *offset = 4;
     *range = 1402.882324;
-    for (int j=0; j< len_raw_signal; j++){
-        uint32_t kmer_rank = get_kmer_rank(read+j, kmer_size);
+    for (int i=0; i< n_kmers; i++){
+        uint32_t kmer_rank = get_kmer_rank(read+i, kmer_size);
         float s = pore_model[kmer_rank].level_mean;
-        raw_signal[j] = s*DIGITISATION/(*range)-(*offset);
+        for(int j=0; j<SAMPLE_RATE/BASES_PER_SECOND; j++){
+            if(n==c){
+                c *= 2;
+                raw_signal = (int16_t *)realloc(raw_signal, c*sizeof(int16_t));
+            }
+            raw_signal[n] = s*DIGITISATION/(*range)-(*offset);
+            n++;
+        }
     }
-
+    *len_raw_signal = n;
     return raw_signal;
 }
 
@@ -245,7 +277,7 @@ int sim_main(int argc, char* argv[]) {
         fprintf(fp_help,"\nbasic options:\n");
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   --version                  print version\n");
-        fprintf(fp_help,"   -o FILE                   SLOW5/BLOW5 file to write.\n");
+        fprintf(fp_help,"   -o FILE                    SLOW5/BLOW5 file to write.\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
@@ -272,13 +304,12 @@ int sim_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-
-
-    int n = 100;
+    int n = 1;
     double median_before = 400;
     int64_t n_samples = 0;
     double range = 0;
     double offset = 0;
+    int64_t len_raw_signal =0;
 
     for(int i=0;i<n;i++){
 
@@ -287,8 +318,7 @@ int sim_main(int argc, char* argv[]) {
             fprintf(stderr,"Could not allocate space for a slow5 record.");
             exit(EXIT_FAILURE);
         }
-        int16_t *raw_signal =gen_sig(ref->ref_seq[0], ref->ref_lengths[0], model, kmer_size, &range, &offset);
-        int64_t len_raw_signal = ref->ref_lengths[0]-kmer_size+1;
+        int16_t *raw_signal =gen_sig(ref->ref_seq[0], ref->ref_lengths[0], model, kmer_size, &range, &offset, &len_raw_signal);
 
         char *read_id= (char *)malloc(sizeof(char)*(1000));
         sprintf(read_id,"read_%d",i);
@@ -312,14 +342,9 @@ int sim_main(int argc, char* argv[]) {
 
     }
 
-
-
-
+    free(model);
     slow5_close(sp);
     free_ref(ref);
-
-
-
 
     return 0;
 }
