@@ -300,7 +300,8 @@ pair_t find_adaptor(slow5_rec_t *rec){
                         seg_c *= 2;
                         segs = (pair_t *)realloc(segs,sizeof(pair_t)*seg_c);
                     }
-                    segs[seg_i] = {start,end};
+                    segs[seg_i].x = start;
+                    segs[seg_i].y = end;
                     seg_i++;
                 }
                 start = 0;
@@ -318,7 +319,8 @@ pair_t find_adaptor(slow5_rec_t *rec){
             if (b - a < lo_thresh){
                 continue;
             }
-            p = {a+SIGFISH_WINDOW_SIZE/2-1, b+SIGFISH_WINDOW_SIZE/2-1};
+            p.x = a+SIGFISH_WINDOW_SIZE/2-1;
+            p.y = b+SIGFISH_WINDOW_SIZE/2-1;
             //fprintf(stderr,"FF %d\t%d\n",p.x, p.y);
             break;
         }
@@ -369,7 +371,7 @@ pair_t jnn(slow5_rec_t *rec){
 
         for(int i=0; i<nsample; i++){
             float a = sig[i];
-            if (a < top and a > bot){ // If datapoint is within range
+            if (a < top && a > bot){ // If datapoint is within range
                 if (!prev){
                     start = i;
                     prev = 1;
@@ -399,7 +401,8 @@ pair_t jnn(slow5_rec_t *rec){
                         segs[seg_i-1].y = end;
                     }
                     else{
-                        segs[seg_i] = {start,end};
+                        segs[seg_i].x = start;
+                        segs[seg_i].y = end;
                         seg_i++;
                     }
                     c = 0;
@@ -433,7 +436,7 @@ pair_t jnn(slow5_rec_t *rec){
         }
 
         if(seg_i){
-            p = {segs[seg_i-1].x,segs[seg_i-1].y};
+            p = segs[seg_i-1];
         }
 
     }
@@ -486,7 +489,7 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
 
         for(int i=0; i<nsample; i++){
             float a = sig[i];
-            if (a < top and a > bot){ // If datapoint is within range
+            if (a < top && a > bot){ // If datapoint is within range
                 if (!prev){
                     start = i;
                     prev = 1;
@@ -520,7 +523,8 @@ pair_t find_polya(float *raw, int64_t nsample, float top, float bot){
                             seg_c *= 2;
                             segs = (pair_t *)realloc(segs,sizeof(pair_t)*seg_c);
                         }
-                        segs[seg_i] = {start,end};
+                        segs[seg_i].x = start;
+                        segs[seg_i].y = end;
                         seg_i++;
                     }
                     c = 0;
@@ -625,7 +629,8 @@ void seg_func(slow5_rec_t *rec, int8_t rna){
         if(rna){
             polya=find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
         } else {
-            polya = {-1,-1};
+            polya.x = -1;
+            polya.y = -1;
         }
         if(polya.y > 0){
             assert(polya.y + p.y < len_raw_signal);

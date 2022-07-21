@@ -179,6 +179,10 @@ static inline int8_t drna_detect(slow5_file_t *sp){
     const slow5_hdr_t* hdr = sp->header;
     int8_t rna = 0;
     char *exp =slow5_hdr_get("experiment_type", 0, hdr);
+    if(exp==NULL){
+        WARNING("%s","experiment_type not found in SLOW5 header. Assuming genomic_dna");
+        return 0;
+    }
     if (strcmp(exp,"genomic_dna")==0){
         rna = 0;
     }else if (strcmp(exp,"rna")==0){

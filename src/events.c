@@ -150,7 +150,7 @@ void quantilef(const float* x, size_t nx, float* p, size_t np) {
  *
  *	@return Median of array on success, NAN otherwise.
  **/
-float medianf(const float* x, size_t n) {
+float medianf2(const float* x, size_t n) {
 #ifdef DISABLE_KSORT
     float p = 0.5;
     quantilef(x, n, &p, 1);
@@ -172,7 +172,7 @@ float medianf(const float* x, size_t n) {
  *
  *	@return MAD of array on success, NAN otherwise.
  **/
-float madf(const float* x, size_t n, const float* med) {
+static float madf(const float* x, size_t n, const float* med) {
     const float mad_scaling_factor = 1.4826;
     if (NULL == x) {
         return NAN;
@@ -186,13 +186,13 @@ float madf(const float* x, size_t n, const float* med) {
         return NAN;
     }
 
-    const float _med = (NULL == med) ? medianf(x, n) : *med;
+    const float _med = (NULL == med) ? medianf2(x, n) : *med;
 
     for (size_t i = 0; i < n; i++) {
         absdiff[i] = fabsf(x[i] - _med);
     }
 
-    const float mad = medianf(absdiff, n);
+    const float mad = medianf2(absdiff, n);
     free(absdiff);
     return mad * mad_scaling_factor;
 }

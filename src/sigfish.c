@@ -405,7 +405,10 @@ aln_t *init_aln(){
     int32_t pos = -1;
     int32_t rid = -1;
     char d = 0;
-    for (int l=0; l<SECONDARY_CAP;l++) aln[l] = {rid,pos,pos,score,score2,d,0};
+    for (int l=0; l<SECONDARY_CAP;l++) {
+        aln_t tmp = {rid,pos,pos,score,score2,d,0};
+        aln[l] = tmp;
+    }
 
     return aln;
 }
