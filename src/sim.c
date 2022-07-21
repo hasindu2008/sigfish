@@ -20,6 +20,7 @@ typedef struct{
     int32_t *ref_lengths;
     char **ref_seq;
     int num_ref;
+    int64_t sum;
 } ref_t;
 
 
@@ -28,6 +29,12 @@ typedef struct{
     double s;
     int64_t x;
 } nrng_t;
+
+typedef struct{
+    double a;
+    double b;
+    int64_t x;
+} grng_t;
 
 typedef struct {
     double digitisation;
@@ -63,9 +70,11 @@ typedef struct{
 } opt_sim_t;
 
 typedef struct {
-    nrng_t *rand_amp;
+
+    int64_t ref_pos;
+    int64_t rand_strand;
     nrng_t *rand_time;
-    nrng_t *rand_rlen;
+    grng_t *rand_rlen;
     nrng_t *rand_offset;
     nrng_t *rand_median_before;
     profile_t profile;
@@ -86,36 +95,57 @@ static struct option long_options[] = {
     {"output",required_argument, 0, 'o'},          //3 output to a file [stdout]
     {"ideal", no_argument, 0, 0},                  //4 ideal signals with no noise
     {"full-contigs", no_argument, 0, 0},           //5 simulate full contigs without breaking
+    {"nreads", required_argument, 0, 'n'},         //6 number of reads
     {0, 0, 0, 0}};
 
 
-
-static nrng_t* init_nrng(int64_t seed, double mean, double std){
+static nrng_t* init_nrng(int64_t seed,double mean, double std){
     nrng_t *rng = (nrng_t *)malloc(sizeof(nrng_t));
     rng->m = mean;
     rng->s = std;
     rng->x = seed;
     return rng;
 }
+
+static grng_t* init_grng(int64_t seed,double alpha, double beta){
+    grng_t *rng = (grng_t *)malloc(sizeof(grng_t));
+    rng->a = alpha;
+    rng->b = beta;
+    rng->x = seed;
+    return rng;
+}
+
 static void free_nrng(nrng_t *rng){
     free(rng);
 }
 
-static double rng(nrng_t *r){
-    int64_t x = r->x;
+static void free_grng(grng_t *rng){
+    free(rng);
+}
+
+static double rng(int64_t *xp){
+    int64_t x = *xp;
     int64_t x_new = (16807 * (x % 127773)) - (2836 * (x / 127773));
     if (x_new > 0) x = x_new; else x = x_new + 2147483647;
-    r->x = x_new;
+    *xp = x_new;
     return (double)x/2147483647;
 }
 
 static double nrng(nrng_t *r){
     double u = 0.0;
     double t = 0.0;
-    while (u == 0.0) u = rng(r);
-    while (t == 0.0) t = 2.0 * 3.14159265 * rng(r);
+    while (u == 0.0) u = rng(&r->x);
+    while (t == 0.0) t = 2.0 * 3.14159265 * rng(&r->x);
     double x = sqrt(-2.0 * log(u)) * cos(t);
     return ((x * r->s) + r->m);
+}
+
+static double grng(grng_t *r){
+    double s = 0.0;
+    for(int i=0; i<r->a; i++){
+        s += -log(1-rng(&r->x));
+    }
+    return s*(r->b);
 }
 
 static void init_opt_sim(opt_sim_t *opt){
@@ -133,11 +163,13 @@ static core_sim_t *init_core_sim(opt_sim_t opt){
     uint32_t k = core->kmer_size = set_model(core->model, MODEL_ID_DNA_NUCLEOTIDE);
     uint32_t n = core->num_kmer = (uint32_t)(1 << 2*k);
 
-    core->rand_amp = init_nrng(1, 0.0, 0.0); //unused
-    core->rand_time = init_nrng(2, 9.0, 1.0);
-    core->rand_rlen = init_nrng(3, 10000.0, 10000.0);
-    core->rand_offset = init_nrng(4, p.offset_mean, p.offset_std);
-    core->rand_median_before = init_nrng(5, p.median_before_mean, p.median_before_std);
+    core->ref_pos = 1;
+    core->rand_strand = 2;
+    core->rand_time = init_nrng(3, 9.0, 1.0); //todo propoer vals
+    core->rand_rlen = init_grng(4, 2.0, 10000.0);
+    core->rand_offset = init_nrng(5, p.offset_mean, p.offset_std);
+    core->rand_median_before = init_nrng(6, p.median_before_mean, p.median_before_std);
+
 
     core->kmer_gen = (nrng_t **)malloc(sizeof(nrng_t *) * n);
     for (uint32_t i = 0; i < n; i++){
@@ -154,9 +186,8 @@ void free_core_sim(core_sim_t *core){
     free(core->kmer_gen);
 
     free(core->model);
-    free_nrng(core->rand_amp);
     free_nrng(core->rand_time);
-    free_nrng(core->rand_rlen);
+    free_grng(core->rand_rlen);
     free_nrng(core->rand_offset);
     free_nrng(core->rand_median_before);
     free(core);
@@ -181,6 +212,7 @@ static ref_t *load_ref(const char *genome){
     ref->ref_lengths = (int32_t *) malloc(sizeof(int32_t));
     ref->ref_names = (char **) malloc(sizeof(char *));
     ref->ref_seq = (char **) malloc(sizeof(char *));
+    ref->sum = 0;
 
     int i = 0;
     while ((l = kseq_read(seq)) >= 0) {
@@ -200,6 +232,7 @@ static ref_t *load_ref(const char *genome){
         ref->ref_seq[i] = (char *) malloc((l+1)*sizeof(char));
         strcpy(ref->ref_seq[i], seq->seq.s);
 
+        ref->sum += l;
         i++;
 
     }
@@ -402,10 +435,48 @@ int16_t *gen_sig(core_sim_t *core, const char *read, int32_t len, double *offset
     return raw_signal;
 }
 
+char *gen_read(core_sim_t *core, ref_t *ref, char **ref_id, int32_t *ref_pos, int32_t *rlen, char *c){
+
+    int len = grng(core->rand_rlen);
+    int64_t ref_sum_pos = round(rng(&core->ref_pos)*ref->sum); //serialised pos
+    assert(ref_sum_pos <= ref->sum);
+    int64_t s = 0;
+    int seq_i = 0;
+    for(seq_i=0; seq_i<ref->num_ref; seq_i++){ //check manually if logic is right
+        s+=ref->ref_lengths[seq_i];
+        if(s>=ref_sum_pos){
+            *ref_id = ref->ref_names[seq_i];
+            *ref_pos = ref_sum_pos-s+ref->ref_lengths[seq_i];
+            break;
+        }
+    }
+    assert(s<=ref->sum);
+
+    int64_t strand = round(rng(&core->rand_strand));
+    *c = strand ? '+' : '-';
+
+    char *seq= (char *)malloc((len+1)*sizeof(char));
+    strncpy(seq,ref->ref_seq[seq_i],len);
+    seq[len] = '\0';
+    *rlen = strlen(seq);
+    //fprintf(stderr,"%d\t%d\t%d\n",*rlen, len, seq_i);
+    assert(*rlen <= len);
+
+
+    if(*c == '-'){
+        char *r = reverse_complement(seq);
+        r[*rlen] = '\0';
+        free(seq);
+        seq = r;
+    }
+
+    return seq;
+
+}
 
 int sim_main(int argc, char* argv[]) {
 
-    const char* optstring = "o:hV";
+    const char* optstring = "o:hVn:";
 
     int longindex = 0;
     int32_t c = -1;
@@ -415,6 +486,8 @@ int sim_main(int argc, char* argv[]) {
 
     opt_sim_t opt;
     init_opt_sim(&opt);
+
+    int nreads = 4000;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -429,6 +502,8 @@ int sim_main(int argc, char* argv[]) {
             opt.ideal = 1;
         } else if (c == 0 && longindex == 5){  //generate signal for complete contigs
             opt.full_contigs =1 ;
+        } else if (c == 'n'){
+            nreads = atoi(optarg);
         }
     }
 
@@ -440,11 +515,14 @@ int sim_main(int argc, char* argv[]) {
         fprintf(fp_help,"   -o FILE                    SLOW5/BLOW5 file to write.\n");
         fprintf(fp_help,"   --ideal                    Generate ideal signals with no noise.\n");
         fprintf(fp_help,"   --full-contigs             Generate signals for complete contigs.\n");
+        fprintf(fp_help,"   -n                         Number of reas to simulate\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
         exit(EXIT_FAILURE);
     }
+
+    //-n incompatible with --full-contigs
 
     char *refname = argv[optind];
     ref_t *ref = load_ref(refname);
@@ -464,11 +542,17 @@ int sim_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    int n = 1;
+    int n = nreads;
     double median_before = 0;
     int64_t n_samples = 0;
     double offset = 0;
     int64_t len_raw_signal =0;
+    char *rid = NULL;
+    char *seq = NULL;
+    int32_t rlen = 0;
+    char strand = '+';
+    int32_t ref_pos_st = 0;
+    int32_t ref_pos_end = 0;
 
     if(opt.full_contigs){
         n = ref->num_ref;
@@ -483,13 +567,24 @@ int sim_main(int argc, char* argv[]) {
             fprintf(stderr,"Could not allocate space for a slow5 record.");
             exit(EXIT_FAILURE);
         }
-        int16_t *raw_signal =gen_sig(core, ref->ref_seq[i], ref->ref_lengths[i], &offset, &median_before, &len_raw_signal);
+
+        if(opt.full_contigs){
+            rid = ref->ref_names[i];
+            rlen = ref->ref_lengths[i];
+            seq = ref->ref_seq[i];
+            strand = '+';
+            ref_pos_st = 0;
+            ref_pos_end = rlen;
+        } else {
+            seq=gen_read(core, ref, &rid, &ref_pos_st, &rlen, &strand);
+            ref_pos_end = ref_pos_st+rlen;
+        }
+        int16_t *raw_signal=gen_sig(core, seq, rlen, &offset, &median_before, &len_raw_signal);
 
         char *read_id= (char *)malloc(sizeof(char)*(1000));
-        sprintf(read_id,"S1_%d!%s!%d!%d!%c",i, ref->ref_names[i], 0, ref->ref_lengths[i], '+');
+        sprintf(read_id,"S1_%d!%s!%d!%d!%c",i+1, rid, ref_pos_st, ref_pos_end, strand);
         printf(">%s\n",read_id);
-        printf("%s\n",ref->ref_seq[i]);
-
+        printf("%s\n",seq);
 
         set_record_primary_fields(&core->profile, slow5_record, read_id, offset, len_raw_signal, raw_signal);
         set_record_aux_fields(slow5_record, sp, median_before, i, n_samples);
@@ -501,6 +596,9 @@ int sim_main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
 
+        if(!opt.full_contigs){
+            free(seq);
+        }
         slow5_rec_free(slow5_record);
 
         fprintf(stderr,"%d reads done\n",i+1);

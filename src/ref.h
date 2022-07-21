@@ -66,4 +66,14 @@ static inline char complement(char c){
     return r;
 }
 
+static inline char *reverse_complement(char *f){
+    char *r = (char *)malloc(strlen(f) + 1);
+    for(unsigned int i=0; i<strlen(f); i++){
+        r[i] = complement(f[strlen(f)-i-1]);
+    }
+    //TODO: new line forgotten?
+    return r;
+}
+
+
 #endif

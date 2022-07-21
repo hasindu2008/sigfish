@@ -83,13 +83,6 @@ static inline void normalise_ref(refsynth_t *ref, int8_t rna){
 
 }
 
-static inline char *reverse_complement(char *f){
-    char *r = (char *)malloc(strlen(f) + 1);
-    for(unsigned int i=0; i<strlen(f); i++){
-        r[i] = complement(f[strlen(f)-i-1]);
-    }
-    return r;
-}
 
 refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size, uint32_t flag, int32_t query_size){
 
