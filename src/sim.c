@@ -435,33 +435,64 @@ int16_t *gen_sig(core_sim_t *core, const char *read, int32_t len, double *offset
     return raw_signal;
 }
 
-char *gen_read(core_sim_t *core, ref_t *ref, char **ref_id, int32_t *ref_pos, int32_t *rlen, char *c){
-
-    int len = grng(core->rand_rlen);
-    int64_t ref_sum_pos = round(rng(&core->ref_pos)*ref->sum); //serialised pos
-    assert(ref_sum_pos <= ref->sum);
-    int64_t s = 0;
-    int seq_i = 0;
-    for(seq_i=0; seq_i<ref->num_ref; seq_i++){ //check manually if logic is right
-        s+=ref->ref_lengths[seq_i];
-        if(s>=ref_sum_pos){
-            *ref_id = ref->ref_names[seq_i];
-            *ref_pos = ref_sum_pos-s+ref->ref_lengths[seq_i];
-            break;
+static inline int32_t is_bad_read(char *seq, int32_t len){
+    if (len < 200){
+        return -1;
+    }
+    int64_t r = 100;
+    int nc = 0;
+    for (int i=0; i<len; i++){
+        if (seq[i] == 'N'){
+            nc++;
+            int n = round(rng(&r)*3);
+            seq[i] = n==0 ? 'A' : n==1 ? 'C' : n==2 ? 'G' : 'T';
+            if(nc > 0.1*len){
+                return nc;
+            }
         }
     }
-    assert(s<=ref->sum);
 
-    int64_t strand = round(rng(&core->rand_strand));
-    *c = strand ? '+' : '-';
+    return 0;
+}
 
-    char *seq= (char *)malloc((len+1)*sizeof(char));
-    strncpy(seq,ref->ref_seq[seq_i],len);
-    seq[len] = '\0';
-    *rlen = strlen(seq);
-    //fprintf(stderr,"%d\t%d\t%d\n",*rlen, len, seq_i);
-    assert(*rlen <= len);
+char *gen_read(core_sim_t *core, ref_t *ref, char **ref_id, int32_t *ref_pos, int32_t *rlen, char *c){
 
+    char *seq = NULL;
+    while(1){
+
+        int len = grng(core->rand_rlen);
+        int64_t ref_sum_pos = round(rng(&core->ref_pos)*ref->sum); //serialised pos
+        assert(ref_sum_pos <= ref->sum);
+        int64_t s = 0;
+        int seq_i = 0;
+        for(seq_i=0; seq_i<ref->num_ref; seq_i++){ //check manually if logic is right
+            s+=ref->ref_lengths[seq_i];
+            if(s>=ref_sum_pos){
+                *ref_id = ref->ref_names[seq_i];
+                *ref_pos = ref_sum_pos-s+ref->ref_lengths[seq_i];
+                break;
+            }
+        }
+        assert(s<=ref->sum);
+
+        int64_t strand = round(rng(&core->rand_strand));
+        *c = strand ? '+' : '-';
+
+        seq= (char *)malloc((len+1)*sizeof(char));
+        strncpy(seq,(ref->ref_seq[seq_i])+(*ref_pos),len);
+        seq[len] = '\0';
+        *rlen = strlen(seq);
+        //fprintf(stderr,"%d\t%d\t%d\n",*rlen, len, seq_i);
+        assert(*rlen <= len);
+        int nc = 0;
+        if((nc = is_bad_read(seq, *rlen))==0){
+           break;
+        } else {
+            fprintf(stderr,"Too many Ns in read %d. %s:%d-%d.Trying again!\n",nc,*ref_id,*ref_pos,*ref_pos+*rlen);
+            //fprintf(stderr,"%s\n",seq);
+            free(seq);
+        }
+    }
 
     if(*c == '-'){
         char *r = reverse_complement(seq);
