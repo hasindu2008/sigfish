@@ -38,7 +38,6 @@ typedef struct {
     double offset_std;
     double median_before_mean;
     double median_before_std;
-;
 } profile_t;
 
 profile_t minion_r9_dna_prof = {
@@ -60,6 +59,7 @@ profile_t prom_r9_dna_prof = {
 
 typedef struct{
     int8_t ideal;
+    int8_t full_contigs;
 } opt_sim_t;
 
 typedef struct {
@@ -85,7 +85,9 @@ static struct option long_options[] = {
     {"version", no_argument, 0, 'V'},              //2
     {"output",required_argument, 0, 'o'},          //3 output to a file [stdout]
     {"ideal", no_argument, 0, 0},                  //4 ideal signals with no noise
+    {"full-contigs", no_argument, 0, 0},           //5 simulate full contigs without breaking
     {0, 0, 0, 0}};
+
 
 
 static nrng_t* init_nrng(int64_t seed, double mean, double std){
@@ -118,6 +120,7 @@ static double nrng(nrng_t *r){
 
 static void init_opt_sim(opt_sim_t *opt){
     opt->ideal = 0;
+    opt->full_contigs = 0;
 }
 
 static core_sim_t *init_core_sim(opt_sim_t opt){
@@ -424,6 +427,8 @@ int sim_main(int argc, char* argv[]) {
             output_file=optarg;
         } else if (c == 0 && longindex == 4){   //generate ideal signal
             opt.ideal = 1;
+        } else if (c == 0 && longindex == 5){  //generate signal for complete contigs
+            opt.full_contigs =1 ;
         }
     }
 
@@ -433,7 +438,8 @@ int sim_main(int argc, char* argv[]) {
         fprintf(fp_help,"   -h                         help\n");
         fprintf(fp_help,"   --version                  print version\n");
         fprintf(fp_help,"   -o FILE                    SLOW5/BLOW5 file to write.\n");
-        fprintf(fp_help,"   --ideal                    Gneerate deal signals with no noise.\n");
+        fprintf(fp_help,"   --ideal                    Generate ideal signals with no noise.\n");
+        fprintf(fp_help,"   --full-contigs             Generate signals for complete contigs.\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
@@ -461,9 +467,12 @@ int sim_main(int argc, char* argv[]) {
     int n = 1;
     double median_before = 0;
     int64_t n_samples = 0;
-    double range = 0;
     double offset = 0;
     int64_t len_raw_signal =0;
+
+    if(opt.full_contigs){
+        n = ref->num_ref;
+    }
 
     core_sim_t *core = init_core_sim(opt);
 
@@ -474,12 +483,12 @@ int sim_main(int argc, char* argv[]) {
             fprintf(stderr,"Could not allocate space for a slow5 record.");
             exit(EXIT_FAILURE);
         }
-        int16_t *raw_signal =gen_sig(core, ref->ref_seq[0], ref->ref_lengths[0], &offset, &median_before, &len_raw_signal);
+        int16_t *raw_signal =gen_sig(core, ref->ref_seq[i], ref->ref_lengths[i], &offset, &median_before, &len_raw_signal);
 
         char *read_id= (char *)malloc(sizeof(char)*(1000));
-        sprintf(read_id,"read_%d",i);
+        sprintf(read_id,"S1_%d!%s!%d!%d!%c",i, ref->ref_names[i], 0, ref->ref_lengths[i], '+');
         printf(">%s\n",read_id);
-        printf("%s\n",ref->ref_seq[0]);
+        printf("%s\n",ref->ref_seq[i]);
 
 
         set_record_primary_fields(&core->profile, slow5_record, read_id, offset, len_raw_signal, raw_signal);
