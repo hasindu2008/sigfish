@@ -31,8 +31,7 @@ void free_ref(refsynth_t *ref);
 // taken from minimap2/misc
 static inline double realtime(void) {
     struct timeval tp;
-    struct timezone tzp;
-    gettimeofday(&tp, &tzp);
+    gettimeofday(&tp, NULL);
     return tp.tv_sec + tp.tv_usec * 1e-6;
 }
 

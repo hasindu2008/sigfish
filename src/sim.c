@@ -2,7 +2,7 @@
 **
 ** @@
 ******************************************************************************/
-
+#define _XOPEN_SOURCE 700
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>

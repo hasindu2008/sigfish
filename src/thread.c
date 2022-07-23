@@ -5,7 +5,7 @@
  * @date 27/02/2021
  */
 
-
+#define _XOPEN_SOURCE 700
 #include <pthread.h>
 #include "sigfish.h"
 #include "error.h"

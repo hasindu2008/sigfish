@@ -2,7 +2,7 @@
 **
 ** @@
 ******************************************************************************/
-
+#define _XOPEN_SOURCE 700
 #include "sigfish.h"
 #include "misc.h"
 #include <assert.h>
