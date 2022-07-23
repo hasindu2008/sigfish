@@ -1,4 +1,5 @@
-/* @file  eval.c
+/* @file  sim.c
+** Stupidly simple signal simulator
 **
 ** @@
 ******************************************************************************/
@@ -546,7 +547,7 @@ int sim_main(int argc, char* argv[]) {
         fprintf(fp_help,"   -o FILE                    SLOW5/BLOW5 file to write.\n");
         fprintf(fp_help,"   --ideal                    Generate ideal signals with no noise.\n");
         fprintf(fp_help,"   --full-contigs             Generate signals for complete contigs.\n");
-        fprintf(fp_help,"   -n                         Number of reas to simulate\n");
+        fprintf(fp_help,"   -n INT                     Number of reads to simulate (ignored if --full-contigs)\n");
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
