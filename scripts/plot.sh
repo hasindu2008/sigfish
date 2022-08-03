@@ -27,7 +27,7 @@ slow5tools get --to slow5 ${blow5} ${read_id} | grep -v '^[#@]' | awk '{print $8
 
 samtools faidx ${fastq}
 samtools faidx ${fastq} ${read_id} > ${read_id}.fasta
-f5c resquiggle --rna ${read_id}.fasta ${blow5} | tail -n +2 | awk '{print $5"\n"$6}' | datamash min 1 max 1 > ${read_id}.abea.txt
+f5c resquiggle --rna ${read_id}.fasta ${blow5} | tail -n +2 | awk '{print $3"\n"$4}' | datamash min 1 max 1 > ${read_id}.abea.txt
 
 #zgrep ${read_id}  test/sequin_reads.abea.tsv.gz | awk '{print $5"\n"$6}' | datamash min 1 max 1 > ${read_id}.abea.txt
 #zgrep ${read_id}  test/sequin_reads.eventalign.tsv.gz | awk '{print $NF"\n"$(NF-1)}' | datamash min 1 max 1 > ${read_id}.eventalign.txt

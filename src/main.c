@@ -42,21 +42,13 @@ void sig_handler(int sig) {
 
 int dtw_main(int argc, char* argv[]);
 int eval_main(int argc, char* argv[]);
-int sim_main(int argc, char* argv[]);
-int cmain(int argc, char* argv[], char *mode);
-
 
 int print_usage(FILE *fp_help){
 
     fprintf(fp_help,"Usage: sigfish <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
     fprintf(fp_help,"         dtw       align query signal to target reference in using DTW\n");
-    fprintf(fp_help,"         event     segment raw signal into events\n");
-    fprintf(fp_help,"         stat      print statistics of the raw signal\n");
-    fprintf(fp_help,"         seg       segments such as adaptor and polyA\n");
-    fprintf(fp_help,"         jnn       print all segments found using james' neural network\n");
     fprintf(fp_help,"         eval      evaluate mappings\n");
-    fprintf(fp_help,"         pa        print raw signal in pico-amperes\n");
     if(fp_help==stderr){
         exit(EXIT_FAILURE);
     }
@@ -85,12 +77,6 @@ int main(int argc, char* argv[]){
     }
     else if (strcmp(argv[1],"eval")==0){
         ret = eval_main(argc-1, argv+1);
-    }
-    else if (strcmp(argv[1],"sim")==0){
-        ret = sim_main(argc-1, argv+1);
-    }
-    else if (strcmp(argv[1],"event")==0 || strcmp(argv[1],"stat")==0 || strcmp(argv[1],"seg")==0 || strcmp(argv[1],"pa")==0 || strcmp(argv[1],"jnn")==0){
-        ret=cmain(argc-1, argv+1, argv[1]);
     }
     else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);

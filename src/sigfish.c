@@ -13,6 +13,8 @@
 #include "sigfish.h"
 #include "misc.h"
 #include "cdtw.h"
+#include "stat.h"
+#include "jnn.h"
 
 #include "slow5/slow5.h"
 #include "../slow5lib/src/slow5_extra.h"
@@ -274,7 +276,7 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 int64_t detect_query_start(slow5_rec_t *rec, event_table et){
     int64_t start = -1;
-    pair_t p=find_adaptor(rec);
+    jnn_pair_t p=find_adaptor(rec);
     int64_t len_raw_signal = rec->len_raw_signal;
     if(p.y > 0){
         assert(p.y<len_raw_signal);
@@ -288,7 +290,7 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
         assert(p.y < len_raw_signal);
 
         float *adapt_end = &current[p.y];
-        pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
+        jnn_pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
 
         uint64_t i = 0;
         if (polya.y > 0){

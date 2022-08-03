@@ -218,14 +218,12 @@ static inline void drna_mismatch(slow5_file_t *sp, int8_t rna){
 #define SIGFISH_WINDOW_SIZE 2000
 #define SIGFISH_SIZE 1000
 
-typedef struct {
-    int64_t x;
-    int64_t y;
-} pair_t;
+// typedef struct {
+//     int64_t x;
+//     int64_t y;
+// } pair_t;
 
-pair_t find_polya(float *raw, int64_t nsample, float top, float bot);
-pair_t find_adaptor(slow5_rec_t *rec);
-float meanf(float *x, int n);
-float stdvf(float *x, int n);
-float medianf(float *x, int n);
+// pair_t find_polya(float *raw, int64_t nsample, float top, float bot);
+// pair_t find_adaptor(slow5_rec_t *rec);
+
 #endif

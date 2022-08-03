@@ -19,11 +19,9 @@ OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/model.o \
       $(BUILD_DIR)/cdtw.o \
 	  $(BUILD_DIR)/genref.o \
-	  $(BUILD_DIR)/cmain.o \
-	  $(BUILD_DIR)/cfunc.o \
+	  $(BUILD_DIR)/jnn.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/eval.o \
-	  $(BUILD_DIR)/sim.o \
 
 PREFIX = /usr/local
 VERSION = `git describe --tags`
@@ -62,10 +60,7 @@ $(BUILD_DIR)/cdtw.o: src/cdtw.c src/cdtw.h
 $(BUILD_DIR)/genref.o: src/genref.c src/ref.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/cmain.o: src/cmain.c src/misc.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
-
-$(BUILD_DIR)/cfunc.o: src/cfunc.c src/misc.h
+$(BUILD_DIR)/jnn.o: src/jnn.c src/jnn.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/misc.o: src/misc.c
@@ -74,8 +69,6 @@ $(BUILD_DIR)/misc.o: src/misc.c
 $(BUILD_DIR)/eval.o: src/eval.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/sim.o: src/sim.c src/ref.h src/misc.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 slow5lib/lib/libslow5.a:
 	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local)  lib/libslow5.a
