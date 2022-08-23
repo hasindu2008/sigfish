@@ -7,7 +7,6 @@
 #ifndef MISC_H
 #define MISC_H
 
-
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <stdint.h>
@@ -16,7 +15,6 @@
 
 void* pthread_single(void* voidargs);
 void pthread_db(core_t* core, db_t* db, void (*func)(core_t*,db_t*,int));
-
 
 
 /* models */

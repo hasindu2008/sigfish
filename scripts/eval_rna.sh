@@ -16,8 +16,6 @@ make
 ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}
 #./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna --full-ref -q 500 -p -1 > ${MY_PAF}
 
-./sigfish eval ${REF_PAF} ${MY_PAF}
 source ${HARU_VENV}/bin/activate
-uncalled pafstats -r ${REF_PAF} ${MY_PAF}
 uncalled pafstats -r ${REF_PAF} ${MY_PAF} -a > err.paf
 ./sigfish eval ${REF_PAF} ${MY_PAF}

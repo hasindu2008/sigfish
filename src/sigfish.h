@@ -84,6 +84,7 @@ typedef struct {
     char **ref_names;
     int32_t *ref_lengths;
     int32_t *ref_seq_lengths;
+    int32_t *ref_st_offset;
 
     float **forward;
     float **reverse;

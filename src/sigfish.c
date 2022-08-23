@@ -605,6 +605,9 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
         db->aln[i].score2 = aln[SECONDARY_CAP-2].score;
         db->aln[i].pos_st = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_st : core->ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_end  ;
         db->aln[i].pos_end = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_end : core->ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_st  ;
+
+        db->aln[i].pos_st += core->ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
+        db->aln[i].pos_end += core->ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
         db->aln[i].rid = aln[SECONDARY_CAP-1].rid;
         db->aln[i].d = aln[SECONDARY_CAP-1].d;
 
@@ -655,27 +658,31 @@ void output_db(core_t* core, db_t* db) {
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
 
-
             // Output of results
-            uint64_t start_idx =  db->qstart[i];
-            uint64_t end_idx =  db->qend[i];
-            uint64_t query_size =  end_idx-start_idx;
+            uint64_t start_event_idx =  db->qstart[i];
+            uint64_t end_event_idx =  db->qend[i];
+            assert(start_event_idx>=0 && start_event_idx<=db->et[i].n);
+            assert(end_event_idx>=0 && end_event_idx<=db->et[i].n);
+            uint64_t start_raw_idx = db->et[i].event[start_event_idx].start; //inclusive
+            uint64_t end_raw_idx = db->et[i].event[end_event_idx].start + db->et[i].event[end_event_idx].length; //exclusive
+
+            uint64_t query_size =  end_event_idx-start_event_idx;
             float block_len = db->aln[i].pos_end - db->aln[i].pos_st;
-            float residue = block_len - db->aln[i].score*block_len/query_size ;
+            float residue = block_len - db->aln[i].score*block_len/(query_size) ;
 
             // if(db->aln[i].score>70){
             //     continue;
             // }
 
-            printf("%s\t",db->slow5_rec[i]->read_id); // Query sequence name
-            printf("%d\t%ld\t%ld\t", db->et[i].n, start_idx,end_idx); // Query sequence length, start, end (in terms of events)
+            printf("%s\t",db->slow5_rec[i]->read_id); // read id name
+            printf("%d\t%ld\t%ld\t", db->slow5_rec[i]->len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
             printf("%c\t",db->aln[i].d); // Direction
-            printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // Target sequence name
-            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // Target sequence length
+            printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // reference sequence name
+            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // reference sequence length
 
 
-            printf("%d\t",db->aln[i].pos_st); // Target start
-            printf("%d\t",db->aln[i].pos_end); // Target end
+            printf("%d\t",db->aln[i].pos_st); // Reference start
+            printf("%d\t",db->aln[i].pos_end); // Reference end
             printf("%d\t",(int)round(residue)); // Number of residues //todo check this
             printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
             printf("%d\t",db->aln[i].mapq); // Mapq

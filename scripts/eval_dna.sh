@@ -18,3 +18,4 @@ make
 
 source ${HARU_VENV}/bin/activate
 uncalled pafstats -r ${REF_PAF} ${MY_PAF}
+./sigfish eval ${REF_PAF} ${MY_PAF}

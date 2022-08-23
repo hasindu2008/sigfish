@@ -99,6 +99,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
 
     int c = 1;
     ref->ref_seq_lengths = (int32_t *) malloc(sizeof(int32_t));
+    ref->ref_st_offset = (int32_t *) malloc(sizeof(int32_t));
     ref->ref_lengths = (int32_t *) malloc(sizeof(int32_t));
     ref->ref_names = (char **) malloc(sizeof(char *));
     ref->forward = (float **) malloc(sizeof(float *));
@@ -117,6 +118,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
             c *= 2;
             ref->ref_lengths = (int32_t *) realloc(ref->ref_lengths, c*sizeof(int32_t));
             ref->ref_seq_lengths = (int32_t *) realloc(ref->ref_seq_lengths, c*sizeof(int32_t));
+            ref->ref_st_offset = (int32_t *) realloc(ref->ref_st_offset, c*sizeof(int32_t));
             ref->ref_names = (char **) realloc(ref->ref_names, c*sizeof(char *));
             ref->forward = (float **) realloc(ref->forward, c*sizeof(float *));
             if(!rna){
@@ -138,6 +140,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
         //int32_t ref_len =  l+1-kmer_size;
         ref->ref_lengths[i] = ref_len;
         ref->ref_seq_lengths[i] = l;
+        ref->ref_st_offset[i] = 0;
         ref->ref_names[i] = (char *) malloc(strlen(seq->name.s)+1);
         strcpy(ref->ref_names[i], seq->name.s);
         ref->forward[i] = (float *) malloc(ref_len*sizeof(float));
@@ -183,10 +186,10 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
                 char *st;
                 if(flag &  SIGFISH_END){ //if the end of query then it is the beginning of the reference in RNA
                     st = seq->seq.s;
-
                 }
                 else{ //if the beginning of query then it is the end of the reference in RNA
                     st = seq->seq.s+l-ref_len-(kmer_size-1);
+                    ref->ref_st_offset[i] = l-ref_len-(kmer_size-1);
                 }
                 LOG_TRACE("%s:%ld-%ld\n",seq->name.s,st-seq->seq.s,st-seq->seq.s+ref_len);
                 for (int j=0; j< ref_len; j++){
@@ -250,6 +253,7 @@ void free_ref(refsynth_t *ref){
 
     free(ref->ref_lengths);
     free(ref->ref_seq_lengths);
+    free(ref->ref_st_offset);
     free(ref->ref_names);
     free(ref->forward);
     free(ref->reverse);
