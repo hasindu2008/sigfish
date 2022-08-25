@@ -83,15 +83,5 @@ distclean: clean
 	rm -rf $(BUILD_DIR)/* autom4te.cache
 
 test: $(BINARY)
-	./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5  > test/res.paf
-	diff -q test/batch0.exp.paf test/res.paf
-	./sigfish dtw -g test/rnasequin_sequences_2.4.fa -s test/sequin_reads.blow5 --rna  > test/res_rna.paf
-	diff -q test/res_rna.exp.paf test/res_rna.paf
+	scripts/test.sh
 
-eval: $(BINARY)
-	./scripts/eval_dna.sh
-	./scripts/eval_rna.sh
-
-
-valgrind: $(BINARY)
-	valgrind --leak-check=full ./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5 > test/res.paf
