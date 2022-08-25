@@ -4,8 +4,6 @@
 ******************************************************************************/
 
 #define _XOPEN_SOURCE 700
-#include "sigfish.h"
-#include "misc.h"
 #include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -13,7 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "sigfish.h"
 #include "khash.h"
+#include "error.h"
 
 #define MAX_ALN 1
 
