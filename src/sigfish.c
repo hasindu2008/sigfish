@@ -108,6 +108,10 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
     core->sum_bytes=0;
     core->total_reads=0; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
 
+    core->prefix_fail=0;
+    core->ignored=0;
+    core->too_short=0;
+
 
     return core;
 }

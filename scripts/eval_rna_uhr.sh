@@ -6,7 +6,7 @@ HARU_VENV=~/haru/
 REF=test/uhr/gencode.v40.10p.ref.fa
 BLOW5=test/uhr/reads_4000.blow5
 THREADS=8
-REF_PAF=test/uhr/rna.minimap2.mapq60.paf
+REF_PAF=test/uhr/rna.minimap2.paf
 MY_PAF=test/uhr/test.paf
 
 #minimap2 -t 8 -cx splice -uf -k14 gencode.v40.10p.ref.fa reads_4000.fastq > rna.minimap2.paf
