@@ -103,6 +103,10 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
     core->load_db_time=0;
     core->process_db_time=0;
     core->output_time=0;
+    core->parse_time=0;
+    core->event_time=0;
+    core->normalise_time=0;
+    core->dtw_time=0;
 
     core->sum_bytes=0;
     core->total_reads=0; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
@@ -111,6 +115,11 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
     core->ignored=0;
     core->too_short=0;
 
+#ifdef HAVE_ACC
+    if (core->opt.flag & SIGFISH_ACC) {
+        VERBOSE("%s","Initialising accelator");
+    }
+#endif
 
     return core;
 }
@@ -126,6 +135,12 @@ void free_core(core_t* core,opt_t opt) {
         }
         free(core->reg_list);
     }
+
+#ifdef HAVE_ACC
+    if (core->opt.flag & SIGFISH_ACC) {
+        VERBOSE("%s","Freeing accelator");
+    }
+#endif
 
     free_ref(core->ref);
 
@@ -314,6 +329,8 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
             //fprintf(stderr,"%s\t./%ld\n",rec->read_id,len_raw_signal);
         }
 
+        free(current);
+
     }
     return start;
 
@@ -471,7 +488,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         int64_t start_idx = db->qstart[i];
         int64_t end_idx = db->qend[i];
-        int64_t n =  db->et[i].n;
+        //int64_t n =  db->et[i].n;
 
         int8_t from_sig_end= core->opt.flag & SIGFISH_END;
         int32_t qlen;
@@ -634,9 +651,48 @@ void work_per_single_read(core_t* core,db_t* db, int32_t i){
 
 }
 
+void align_db(core_t* core, db_t* db) {
+#ifdef HAVE_ACC
+    if (core->opt.flag & SIGFISH_ACC) {
+        VERBOSE("%s","Aligning reads with accel");
+        work_db(core,db,dtw_single);
+    }
+#endif
+
+    if (!(core->opt.flag & SIGFISH_ACC)) {
+        //fprintf(stderr, "cpu\n");
+        work_db(core,db,dtw_single);
+    }
+}
+
+
 void process_db(core_t* core,db_t* db){
     double proc_start = realtime();
-    work_db(core, db, work_per_single_read);
+
+    if(core->opt.flag & SIGFISH_PRF || core->opt.flag & SIGFISH_ACC){
+        double a = realtime();
+        work_db(core,db,parse_single);
+        double b = realtime();
+        core->parse_time += (b-a);
+
+        a = realtime();
+        work_db(core,db,event_single);
+        b = realtime();
+        core->event_time += (b-a);
+
+        a = realtime();
+        work_db(core,db,normalise_single);
+        b = realtime();
+        core->normalise_time += (b-a);
+
+        a = realtime();
+        align_db(core,db);
+        b = realtime();
+        core->dtw_time += (b-a);
+    } else {
+        work_db(core, db, work_per_single_read);
+    }
+
     double proc_end = realtime();
     core->process_db_time += (proc_end-proc_start);
 }
@@ -678,7 +734,7 @@ void output_db(core_t* core, db_t* db) {
             // }
 
             printf("%s\t",db->slow5_rec[i]->read_id); // read id name
-            printf("%d\t%ld\t%ld\t", db->slow5_rec[i]->len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+            printf("%ld\t%ld\t%ld\t", db->slow5_rec[i]->len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
             printf("%c\t",db->aln[i].d); // Direction
             printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // reference sequence name
             printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // reference sequence length
@@ -756,6 +812,11 @@ void init_opt(opt_t* opt) {
 
     opt->prefix_size = 50;
     opt->query_size = 250;
+
+#ifdef HAVE_ACC
+    opt->flag |= SIGFISH_ACC;
+#endif
+
 
 }
 

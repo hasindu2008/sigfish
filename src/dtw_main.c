@@ -36,6 +36,8 @@ static struct option long_options[] = {
     {"secondary", required_argument, 0, 0},        //18 Print secondary mappings or not
     {"full-ref", no_argument, 0, 0},               //19 Map to full reference instead of a segment
     {"from-end", no_argument, 0, 0},               //20 Map the end portion of the query
+    {"profile-cpu",required_argument, 0, 0},       //21 perform section by section (used for profiling - for CPU only)
+    {"accel",required_argument, 0, 0},             //22 perform section by section (used for profiling - for CPU only)
     {0, 0, 0, 0}};
 
 
@@ -71,11 +73,16 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -q INT                     the number of events in query signal to align [%d]\n",opt.query_size);
     fprintf(fp_help,"   -p INT                     the number of events to trim at query signal start [%d]\n",opt.prefix_size);
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
+    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section (used for profiling on CPU)\n");
     fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
     fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
     fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
     fprintf(fp_help,"   --full-ref                 map to the full reference\n");
     fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning\n");
+#ifdef HAVE_ACC
+    fprintf(fp_help,"   --accel=yes|no             Running on accelerator [%s]\n",(opt.flag&SIGFISH_ACC?"yes":"no"));
+#endif
+
 }
 
 //parse yes or no arguments : taken from minimap2
@@ -191,7 +198,16 @@ int dtw_main(int argc, char* argv[]) {
             yes_or_no(&opt, SIGFISH_REF, longindex, "yes", 1);
         } else if(c == 0 && longindex == 20){ //map query end
             yes_or_no(&opt, SIGFISH_END, longindex, "yes", 1);
+        } else if(c == 0 && longindex == 21){ //sectional benchmark todo : warning for gpu mode
+            yes_or_no(&opt, SIGFISH_PRF, longindex, optarg, 1);
+        } else if(c == 0 && longindex == 22){ //accel
+        #ifdef HAVE_ACC
+            yes_or_no(&opt, SIGFISH_ACC, longindex, optarg, 1);
+        #else
+            WARNING("%s", "--accel has no effect when compiled for the CPU");
+        #endif
         }
+
     }
 
     // No arguments given
@@ -289,6 +305,13 @@ int dtw_main(int argc, char* argv[]) {
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
+    if((core->opt.flag&SIGFISH_PRF)|| core->opt.flag & SIGFISH_ACC){
+            fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
+            fprintf(stderr, "\n[%s]     - Events time: %.3f sec",__func__, core->event_time);
+            fprintf(stderr, "\n[%s]     - Normalise time: %.3f sec",__func__, core->normalise_time);
+            fprintf(stderr, "\n[%s]     - DTW time: %.3f sec",__func__, core->dtw_time);
+    }
+
     fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
 
     fprintf(stderr,"\n");

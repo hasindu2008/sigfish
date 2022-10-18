@@ -31,6 +31,9 @@ ifdef asan
 	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
 endif
 
+ifdef acc
+    CPPFLAGS += -DHAVE_ACC=1
+endif
 .PHONY: clean distclean test
 
 $(BINARY): $(OBJ) slow5lib/lib/libslow5.a

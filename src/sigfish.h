@@ -32,6 +32,8 @@
 #define SIGFISH_SEC 0x008 //if secondaries are printed
 #define SIGFISH_REF 0x010 //map to the whole reference
 #define SIGFISH_END 0x020 //map the end of the query
+#define SIGFISH_PRF 0x040 //cpu-profile mode
+#define SIGFISH_ACC 0x080 //accelerator enable
 
 #define SECONDARY_CAP 5 //maximum number of secondary events to print
 
@@ -204,6 +206,10 @@ typedef struct {
     double load_db_time;
     double process_db_time;
     double output_time;
+    double parse_time;
+    double event_time;
+    double normalise_time;
+    double dtw_time;
 
     //stats //set by output_db
     int64_t sum_bytes;
