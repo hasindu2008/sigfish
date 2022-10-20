@@ -21,6 +21,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifdef HAVE_ACC
+#include "cudtw.cuh"
+#endif
+
 enum sigfish_log_level_opt _log_level = LOG_VERB;
 
 /* initialise the core data structure */
@@ -656,6 +660,7 @@ void align_db(core_t* core, db_t* db) {
     if (core->opt.flag & SIGFISH_ACC) {
         VERBOSE("%s","Aligning reads with accel");
         work_db(core,db,dtw_single);
+        dtw_cuda_db(core, db);
     }
 #endif
 

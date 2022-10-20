@@ -1,5 +1,8 @@
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct Path
 {
@@ -13,3 +16,7 @@ float std_dtw(float *x, float *y, int n, int m, float *cost, int squared);
 int path(float *cost, int n, int m, int startx, int starty, Path *p);
 void subsequence(float *x, float *y, int n, int m, float *cost);
 int subsequence_path(float *cost, int n, int m, int starty, Path *p);
+
+#ifdef __cplusplus
+}
+#endif

@@ -32,12 +32,19 @@ ifdef asan
 endif
 
 ifdef acc
+    CUDA_ROOT = /usr/local/cuda
+    CUDA_LIB ?= $(CUDA_ROOT)/lib64
+	CUDA_OBJ = $(BUILD_DIR)/cudtw.o
+	NVCC ?= nvcc
+	CUDA_CFLAGS = -g  -O2  -lineinfo $(CUDA_ARCH) -Xcompiler -Wall
+    CUDA_LDFLAGS = -L$(CUDA_LIB) -lcudart_static -lrt -ldl
+	OBJ +=  $(BUILD_DIR)/gpucode.o $(CUDA_OBJ)
     CPPFLAGS += -DHAVE_ACC=1
 endif
 .PHONY: clean distclean test
 
 $(BINARY): $(OBJ) slow5lib/lib/libslow5.a
-	$(CC) $(CFLAGS) $(OBJ) slow5lib/lib/libslow5.a $(LDFLAGS) -o $@
+	$(CC) $(CFLAGS) $(OBJ) slow5lib/lib/libslow5.a $(LDFLAGS) $(CUDA_LDFLAGS) -o $@
 
 $(BUILD_DIR)/main.o: src/main.c src/misc.h src/error.h src/sigfish.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
@@ -72,6 +79,12 @@ $(BUILD_DIR)/misc.o: src/misc.c
 $(BUILD_DIR)/eval.o: src/eval.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
+#cuda stuff
+$(BUILD_DIR)/gpucode.o: $(CUDA_OBJ)
+	$(NVCC) $(CUDA_CFLAGS) -dlink $^ -o $@
+
+$(BUILD_DIR)/cudtw.o: src/cudtw.cu
+	$(NVCC) -x cu $(CUDA_CFLAGS) $(CPPFLAGS) -rdc=true -c $< -o $@
 
 slow5lib/lib/libslow5.a:
 	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local)  lib/libslow5.a
