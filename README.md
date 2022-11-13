@@ -1,5 +1,3 @@
 # sigfish-haru
 
-This is an early fork of the [sigfish](https://github.com/hasindu2008/sigfish) which demonstrates the integration of HARU for real-time squiggle mapping.
-
-Building instruction are described in the [HARU](https://github.com/beebdev/HARU).
+This is an early fork of [sigfish](https://github.com/hasindu2008/sigfish) which demonstrates the integration of Hardware Accelerated Read Until (HARU) for efficient and fast nanopore squiggle mapping. Building and usage instruction are described in the [HARU](https://github.com/beebdev/HARU) repostory.
