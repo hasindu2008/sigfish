@@ -1,0 +1,3 @@
+[submodule "HARU"]
+	path = HARU
+	url = https://github.com/beebdev/HARU
