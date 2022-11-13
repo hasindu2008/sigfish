@@ -1,6 +1,6 @@
 # sigfish
 
-**This is under construction. Interface and parameters are not stable.**
+**This is under construction. Interface and parameters are not stable. Documentation is currently minimal**
 
 sigfish is an experiment toolkit that attempts to directly map nanopre raw signal data to a reference.
 
@@ -22,7 +22,7 @@ On OS X : brew install zlib
 
 ## Usage
 
-Current, there are two subtools: dtw and eval.
+Currently, there are two subtools: *dtw* and *eval*.
 
 ## dtw
 
@@ -60,7 +60,17 @@ Following optional tags are present:
 
 ## eval
 
-Evaluates/compare mappings in PAF format (testset) by comparing to a truthset which is also in PAF format.  As an example, testset is the output from *sigfish dtw*, whereas, truthset can be the mapping output from [Minimap2](https://github.com/lh3/minimap2). The mapping coordinate (and the strand) for read ID in the testset is compared agianst those in the truthset. Output includes statistics for mapping accuracy considering the testset as a whole, as well as teh accuracy based on individual mapping qualities scores.
+Evaluates/compare mappings in PAF format (testset) by comparing to a truthset which is also in PAF format.  As an example, testset is the output from *sigfish dtw*, whereas, truthset can be the mapping output from [Minimap2](https://github.com/lh3/minimap2). The mapping position (includes contig name, coordinates and strandness) for read ID in the testset is compared agianst those in the truthset. A mapping is considered correct if the contig name and the strandness in the testset exactly matches the truthset and the mapping coodinates match the criteria `min(|diff_st|,|diff_end|) < THRESHOLD` where,
+
+```
+truth:   -----------------------------
+test:                    -----------------------------------
+         |<---diff_st--->|            |<-----diff_end----->|
+```         
+
+THRESHOLD is 100 by default.
+
+Output includes statistics for mapping accuracy considering the testset as a whole, as well as based on individual mapping qualities scores.
 
 Usage:
 
