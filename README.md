@@ -1,27 +1,38 @@
 # sigfish
 
-** This is under construction **
+**This is under construction. Interface and parameters are not stable.**
+
+sigfish is an experiment toolkit that attempts to directly map nanopre raw signal data to a reference.
 
 ## Building
 
-Dependencies: zlib development libraries
-
 ```
+sudo apt-get install zlib1g-dev   #install zlib development libraries
 git clone https://github.com/hasindu2008/sigfish
 cd sigfish
 make
 ```
 
+The commands to install zlib __development libraries__ on some popular distributions:
+```sh
+On Debian/Ubuntu : sudo apt-get install zlib1g-dev
+On Fedora/CentOS : sudo dnf/yum install zlib-devel
+On OS X : brew install zlib
+```
+
+## Usage
+
+Current, there are two subtools: dtw and eval.
 
 ## dtw
 
-Performs dynamic time warping-based alignment of raw signals in S/BLOW5 format to a reference in FASTA format. This is an all-to-all alignment and is not intended for large references.
+Performs subsequence Dynamic Time Warping (sDTW) of raw signals in [S/BLOW5 format](https://www.nature.com/articles/s41587-021-01147-4) to a reference in FASTA format. This is an all-to-all alignment and is not intended for large references.
 
 ```
 Usage: sigfish dtw [OPTIONS] genome.fa reads.blow5
 ```
 
-Output is in PAF-like format (inspired by UNCALLED) with the following columns
+Output is in a PAF-like format with the following columns:
 
 |Col|Type  |Description                               |
 |--:|:----:|:-----------------------------------------|
@@ -38,8 +49,6 @@ Output is in PAF-like format (inspired by UNCALLED) with the following columns
 |11 |int   |Alignment block length on the reference in terms of bases                 |
 |12 |int   |Mapping quality (0-255; 255 for missing)  |
 
-
-
 Following optional tags are present:
 
 |Tag|Type  |Description                               |
@@ -51,11 +60,21 @@ Following optional tags are present:
 
 ## eval
 
-Similar to UNCALLED pafstats.
+Evaluates/compare mappings in PAF format (testset) by comparing to a truthset which is also in PAF format.  As an example, testset is the output from *sigfish dtw*, whereas, truthset can be the mapping output from [Minimap2](https://github.com/lh3/minimap2). The mapping coordinate (and the strand) for read ID in the testset is compared agianst those in the truthset. Output includes statistics for mapping accuracy considering the testset as a whole, as well as teh accuracy based on individual mapping qualities scores.
+
+Usage:
+
+```
+sigfish eval truth.paf test.paf
+```
 
 
 ## Acknowledgement
-The event detection code is from Oxford Nanopore's [Scrappie basecaller](https://github.com/nanoporetech/scrappie).
-The DTW code is from [mlpy](http://mlpy.sourceforge.net/).
-The pore-models are from [Nanopolish](https://github.com/jts/nanopolish).
-Some code snippets have been taken from [Minimap2](https://github.com/lh3/minimap2), [Samtools](http://samtools.sourceforge.net/).
+
+- The output PAF-like format output by *sigfish dtw* was inspired by [UNCALLED](https://github.com/skovaka/UNCALLED). *sigfish eval* was implemented by learning from [UNCALLED](https://github.com/skovaka/UNCALLED) pafstats.
+- The methodology in [ReadUntil](https://github.com/mattloose/RUscripts) was referred to when implementing alignment component in *sigfish dtw*
+- The event detection code is from Oxford Nanopore's [Scrappie basecaller](https://github.com/nanoporetech/scrappie).
+- The DTW code is from [mlpy](http://mlpy.sourceforge.net/).
+- The pore-models are from [Nanopolish](https://github.com/jts/nanopolish).
+- Some code snippets have been taken from [Minimap2](https://github.com/lh3/minimap2), [Samtools](http://samtools.sourceforge.net/).
+
