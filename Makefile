@@ -1,5 +1,5 @@
-CC       = gcc
-CXX      = g++
+CC       ?= gcc
+CXX      ?= g++
 LANGFLAG = -x c++
 CPPFLAGS += -I slow5lib/include/
 CFLAGS   += -g -Wall -O2 -std=c++11
