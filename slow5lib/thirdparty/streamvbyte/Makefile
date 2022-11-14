@@ -6,7 +6,8 @@
 #
 .SUFFIXES: .cpp .o .c .h
 
-PROCESSOR:=$(shell uname -m)
+#PROCESSOR:=$(shell uname -m)
+PROCESSOR=aarch64
 
 ifeq ($(no_simd),1) #if no_simd is set
 CFLAGS = -fPIC -std=c99 -O3 -Wall -Wextra -pedantic -Wshadow
