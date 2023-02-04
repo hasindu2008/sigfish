@@ -22,6 +22,7 @@ OBJ = $(BUILD_DIR)/main.o \
 	  $(BUILD_DIR)/jnn.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/eval.o \
+	  $(BUILD_DIR)/real.o \
 
 PREFIX = /usr/local
 VERSION = `git describe --tags`
@@ -72,6 +73,8 @@ $(BUILD_DIR)/misc.o: src/misc.c
 $(BUILD_DIR)/eval.o: src/eval.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
+$(BUILD_DIR)/real.o: src/real.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 slow5lib/lib/libslow5.a:
 	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local)  lib/libslow5.a

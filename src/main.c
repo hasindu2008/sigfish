@@ -41,6 +41,7 @@ void sig_handler(int sig) {
 
 int dtw_main(int argc, char* argv[]);
 int eval_main(int argc, char* argv[]);
+int real_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
@@ -76,6 +77,9 @@ int main(int argc, char* argv[]){
     }
     else if (strcmp(argv[1],"eval")==0){
         ret = eval_main(argc-1, argv+1);
+    }
+    else if (strcmp(argv[1],"real")==0){
+        ret = real_main(argc-1, argv+1);
     }
     else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);
