@@ -20,7 +20,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "error.h"
-#include "sigfish.h"
+#include <sigfish.h>
 
 
 #ifndef DISABLE_KSORT

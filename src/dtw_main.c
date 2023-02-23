@@ -2,7 +2,7 @@
 **
 ** @@
 ******************************************************************************/
-#include "sigfish.h"
+#include <sigfish.h>
 #include "misc.h"
 #include <assert.h>
 #include <getopt.h>

@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sigfish.h"
+#include <sigfish.h>
 #include "misc.h"
 #include "cdtw.h"
 #include "stat.h"
@@ -837,23 +837,88 @@ sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads){
     MALLOC_CHK(state);
     state->num_channels = num_channels;
     state->threads = threads;
-    state->status = (uint8_t*)malloc(sizeof(uint8_t)*num_channels);
+    state->status = (uint8_t*)calloc(num_channels,sizeof(uint8_t));
     MALLOC_CHK(state->status);
-    state->reads = (sigfish_read_t *)malloc(sizeof(sigfish_read_t)*num_channels);
+    state->reads = (sigfish_read_t *)calloc(num_channels,sizeof(sigfish_read_t));
     MALLOC_CHK(state->reads);
+
+    for(int i=0;i<num_channels;i++){
+        state->reads[i].c_raw_signal = 10000;
+        state->reads[i].raw_signal = (float *)malloc(sizeof(float)*10000);
+        MALLOC_CHK(state->reads[i].raw_signal);
+    }
     return state;
 }
 
 void free_sigfish(sigfish_state_t *state){
+    for(int i=0;i<state->num_channels;i++){
+        free(state->reads[i].raw_signal);
+    }
     free(state->status);
     free(state->reads);
     free(state);
 }
 
-uint8_t *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
-    //populate
+#define SIGFISH_CHUNK_SIZE 1200
+#define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
 
-    //process
+uint8_t *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
+
+    for(int i=0;i<state->num_channels;i++){
+
+        fprintf(stderr,"num channels %d\n",state->num_channels);
+        //populate
+        sigfish_read_t *r = &state->reads[i];
+        if (r->read_number == read_batch[i].read_number){ //same read number
+            if(r->c_raw_signal < r->len_raw_signal + read_batch[i].len_raw_signal){
+                r->c_raw_signal = r->len_raw_signal + read_batch[i].len_raw_signal;
+                r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
+                MALLOC_CHK(r->raw_signal);
+            }
+            memcpy(r->raw_signal+r->len_raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
+            r->len_raw_signal += read_batch[i].len_raw_signal;
+            fprintf(stderr,"read %d len %d\n",r->read_number,r->len_raw_signal);
+        } else { //new read number
+            r->len_raw_signal = read_batch[i].len_raw_signal;
+            state->status[i] = 0;
+            if(r->c_raw_signal < read_batch[i].len_raw_signal){
+                r->c_raw_signal = read_batch[i].len_raw_signal;
+                r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
+                MALLOC_CHK(r->raw_signal);
+            }
+            memcpy(r->raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
+        }
+
+
+        //process
+
+        //if too short to start detecting adaptor
+        if (r->len_raw_signal < SIGFISH_MIN_SAMPLES){
+            state->status[i] = SIGFISH_MORE;
+        } else {
+
+            //detect adaptor
+            float sum = 0;
+            for(int j=SIGFISH_CHUNK_SIZE*6;j<SIGFISH_CHUNK_SIZE*7;j++){
+                sum += r->raw_signal[j];
+            }
+            sum /= SIGFISH_CHUNK_SIZE;
+
+            if((int)sum % 2 == 0){
+                state->status[i] = SIGFISH_REJECT;
+            } else {
+                state->status[i] = SIGFISH_CONT;
+            }
+
+            //detect polya
+
+            //dtw
+
+        }
+
+    }
+
+
 
     return state->status;
 }

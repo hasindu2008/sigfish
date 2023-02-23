@@ -6,7 +6,7 @@
  */
 
 #include <pthread.h>
-#include "sigfish.h"
+#include <sigfish.h>
 #include "error.h"
 #include "misc.h"
 

@@ -11,7 +11,7 @@
 #include <assert.h>
 #include <zlib.h>
 
-#include "sigfish.h"
+#include <sigfish.h>
 #include "error.h"
 #include "ref.h"
 

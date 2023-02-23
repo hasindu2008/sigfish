@@ -6,7 +6,7 @@
 #define SIGFISH_H
 
 #include <stdint.h>
-#include "slow5/slow5.h"
+#include <slow5/slow5.h>
 
 #define SIGFISH_VERSION "0.1.0"
 
@@ -256,6 +256,10 @@ typedef struct{
     int32_t read_number;
     uint64_t len_raw_signal;
     float* raw_signal;
+
+    //private
+    uint64_t c_raw_signal;
+
 } sigfish_read_t;
 
 typedef struct{

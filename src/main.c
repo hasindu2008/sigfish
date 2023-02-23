@@ -7,7 +7,7 @@
 #include <string.h>
 #include <signal.h>
 #include <assert.h>
-#include "sigfish.h"
+#include <sigfish.h>
 #include "misc.h"
 #include "error.h"
 
