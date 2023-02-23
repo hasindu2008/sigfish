@@ -828,3 +828,32 @@ enum sigfish_log_level_opt get_log_level(){
 void set_log_level(enum sigfish_log_level_opt level){
     _log_level = level;
 }
+
+
+//realtime stuff
+
+sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads){
+    sigfish_state_t *state = (sigfish_state_t *)malloc(sizeof(sigfish_state_t));
+    MALLOC_CHK(state);
+    state->num_channels = num_channels;
+    state->threads = threads;
+    state->status = (uint8_t*)malloc(sizeof(uint8_t)*num_channels);
+    MALLOC_CHK(state->status);
+    state->reads = (sigfish_read_t *)malloc(sizeof(sigfish_read_t)*num_channels);
+    MALLOC_CHK(state->reads);
+    return state;
+}
+
+void free_sigfish(sigfish_state_t *state){
+    free(state->status);
+    free(state->reads);
+    free(state);
+}
+
+uint8_t *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
+    //populate
+
+    //process
+
+    return state->status;
+}
