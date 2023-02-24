@@ -877,7 +877,7 @@ uint8_t *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
             }
             memcpy(r->raw_signal+r->len_raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
             r->len_raw_signal += read_batch[i].len_raw_signal;
-            fprintf(stderr,"read %d len %d\n",r->read_number,r->len_raw_signal);
+            fprintf(stderr,"read %d len %ld\n",r->read_number,r->len_raw_signal);
         } else { //new read number
             r->len_raw_signal = read_batch[i].len_raw_signal;
             state->status[i] = 0;

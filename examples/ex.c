@@ -32,11 +32,7 @@ int main(){
 
     }
 
-
     free_sigfish(state);
-
-
-
 
     return 0;
 }

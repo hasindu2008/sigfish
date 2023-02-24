@@ -88,3 +88,12 @@ test/ecoli_2kb_region/reads.fasta.index.readdb
 /*.paf
 /test/uhr
 err.paftest.paf
+/ex
+/lib/libsigfish.a
+test/sequin_rna/sequin_reads.blow5.idx
+test/sequin_rna/sequin_reads.fastq.fai
+test/sequin_rna/test.paf
+test/sequin_rna/untitled.m
+test/sp1_dna/batch0.blow5.idx
+test/sp1_dna/batch0.fastq.fai
+test/sp1_dna/test.paf
