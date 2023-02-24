@@ -216,7 +216,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_param_t param, jnnv3_state_
 
 
     // this is the algo. Simple yet effective
-    reset_jnnv3_state(s);
+    reset_jnnv3_state(s,param);
 
     for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
 
