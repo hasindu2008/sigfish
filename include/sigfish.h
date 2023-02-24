@@ -246,10 +246,12 @@ typedef struct {
     int64_t num_bytes;
 } ret_status_t;
 
+enum sigfish_status{
+    SIGFISH_MORE = 0,      //more data needed
+    SIGFISH_REJECT = 1,    //reject the read
+    SIGFISH_CONT =2     //continue with the read
+};
 
-#define SIGFISH_MORE 0      //more data needed
-#define SIGFISH_REJECT 1    //reject the read
-#define SIGFISH_CONT 2      //continue with the read
 
 //realtime sigfish
 typedef struct{
@@ -266,13 +268,13 @@ typedef struct{
     uint32_t num_channels;
     int threads;
     const char *ref;
-    uint8_t *status;
+    enum sigfish_status *status;
     sigfish_read_t *reads;
 } sigfish_state_t;
 
 sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads);
 void free_sigfish(sigfish_state_t *state);
-uint8_t *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch);
+enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch);
 
 /******************************************
  * function prototype for major functions *

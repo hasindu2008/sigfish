@@ -20,7 +20,7 @@ int main(){
             }
 
         }
-        uint8_t *status = process_sigfish(state, reads);
+        enum sigfish_status *status = process_sigfish(state, reads);
         for(int i=0;i<CHANNELS;i++){
             printf("channel %d: %d\n", i, status[i]);
         }

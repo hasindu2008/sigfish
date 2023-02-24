@@ -837,7 +837,7 @@ sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads){
     MALLOC_CHK(state);
     state->num_channels = num_channels;
     state->threads = threads;
-    state->status = (uint8_t*)calloc(num_channels,sizeof(uint8_t));
+    state->status = (enum sigfish_status*)calloc(num_channels,sizeof(enum sigfish_status));
     MALLOC_CHK(state->status);
     state->reads = (sigfish_read_t *)calloc(num_channels,sizeof(sigfish_read_t));
     MALLOC_CHK(state->reads);
@@ -862,7 +862,7 @@ void free_sigfish(sigfish_state_t *state){
 #define SIGFISH_CHUNK_SIZE 1200
 #define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
 
-uint8_t *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
+enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
 
     for(int i=0;i<state->num_channels;i++){
 

@@ -214,7 +214,6 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_param_t param, jnnv3_state_
     MALLOC_CHK(sig_store);
     int sig_store_i = 0;
 
-
     // this is the algo. Simple yet effective
     reset_jnnv3_state(s,param);
 
