@@ -9,14 +9,16 @@
 #include <slow5/slow5.h>
 #include "error.h"
 #include "stat.h"
+#include "ref.h"
+#include "sigfish.h"
+#include "misc.h"
 #include "jnn.h"
 
-
-int16_t **get_chunks(const int16_t *raw, int64_t nsample, int chunk_size, int num_chunks){
-    int16_t **chunks = (int16_t **)malloc(sizeof(int16_t *)*num_chunks);
+float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_chunks){
+    float **chunks = (float **)malloc(sizeof(float *)*num_chunks);
     MALLOC_CHK(chunks);
     for (int chunk_i=0; chunk_i<num_chunks; chunk_i++){
-        chunks[chunk_i] = (int16_t *)malloc(sizeof(int16_t)*chunk_size);
+        chunks[chunk_i] = (float *)malloc(sizeof(float)*chunk_size);
         MALLOC_CHK(chunks[chunk_i]);
         int cur_chunk_size = (chunk_i == num_chunks-1) ? nsample - chunk_i*chunk_size : chunk_size;
         for(int j=0; j<cur_chunk_size; j++){
@@ -28,18 +30,17 @@ int16_t **get_chunks(const int16_t *raw, int64_t nsample, int chunk_size, int nu
 }
 
 
-void jnn_v3(const int16_t *raw, int64_t nsample){
-
+void jnn_v3(const float *raw, int64_t nsample){
 
     // now feed algorithm with chunks of signal simulating real-time
-    int chunk_size = 1200;
-    int num_chunks = (nsample + chunk_size -1) / chunk_size;
+    const int chunk_size = 1200;
+    const int num_chunks = (nsample + chunk_size -1) / chunk_size;
 
-    int16_t **chunks = get_chunks(raw, nsample, chunk_size, num_chunks);
+    float **chunks = get_chunks(raw, nsample, chunk_size, num_chunks);
 
-    int start_chunks = 6; //num of chunks to store before processing
+    const int start_chunks = 6; //num of chunks to store before processing
 
-    int16_t *sig_store = (int16_t *)malloc(sizeof(int16_t)*nsample);
+    float *sig_store = (float *)malloc(sizeof(float)*nsample);
     MALLOC_CHK(sig_store);
     int sig_store_i = 0;
 
@@ -50,15 +51,15 @@ void jnn_v3(const int16_t *raw, int64_t nsample){
     int err = 0;       // total error
     int prev_err = 0;  // consecutive error
     int c = 0;         // counter
-    int w = 1200;       // window to increase total error thresh
-    int seg_dist = 1800;  // distance between 2 segs to be merged as one
+    int w = 1200;       // window to increase total error thresh (corrector)
+    const int seg_dist = 1800;  // distance between 2 segs to be merged as one
     int start = 0;     // start pos
     int end = 0;       // end pos
     int8_t adapter_found = 0;
-    int window = 300; //Minimum segment window size to be detected
-    float std_scale = 0.9; //Scale factor of STDev about median
-    int error = 5; //Allowable error in segment algorithm
-    int min_seg_len = 4000; //Minimum length of a segment to be constructed
+    const int window = 300; //Minimum segment window size to be detected
+    const float std_scale = 0.9; //Scale factor of STDev about median
+    const int error = 5; //Allowable error in segment algorithm
+    const int min_seg_len = 4000; //Minimum length of a segment to be constructed
 
     int seg_c = SIGTK_SIZE;
     jnn_pair_t * segs = (jnn_pair_t *)malloc(sizeof(jnn_pair_t)*seg_c);
@@ -69,41 +70,48 @@ void jnn_v3(const int16_t *raw, int64_t nsample){
     float median = 0;
     float stdev = 0;
     float top = 0;
-    int16_t a = 0;
+    float a = 0;
 
     for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
-        //fprintf(stderr,"processing chunk: %d\n", chunk_i);
-        // print("chunk {}".format(chunk))
-        int current_chunk_size = (chunk_i == num_chunks-1) ? nsample - chunk_i*chunk_size : chunk_size;
 
-        if (chunk_i < start_chunks){
+        // print("chunk {}".format(chunk))
+
+        int current_chunk_size = (chunk_i == num_chunks-1) ? nsample - chunk_i*chunk_size : chunk_size;
+        float *chunk = chunks[chunk_i];
+        //fprintf(stderr,"processing chunk: %d, size %d\n", chunk_i, current_chunk_size);
+
+        if (chunk_i < start_chunks){ //append first few chunks to sig_store
             for(int j=0; j<current_chunk_size; j++){
-                sig_store[sig_store_i] = chunks[chunk_i][j];
+                sig_store[sig_store_i] = chunk[j];
                 sig_store_i++;
-                assert(sig_store_i < nsample);
+                assert(sig_store_i <= nsample);
             }
+            //fprintf(stderr,"chunk_i: %d added to sig_store\n", chunk_i);
             continue;
         }
-        fprintf(stderr,"size_i: %d\n", sig_store_i);
+        //fprintf(stderr,"size_i: %d\n", sig_store_i);
 
-        if (sig_store_i > 0){
+        if (sig_store_i > 0){ //append one more chunk to sig_store
             for(int j=0; j<current_chunk_size; j++){
-                sig_store[sig_store_i] = chunks[chunk_i][j];
+                sig_store[sig_store_i] = chunk[j];
                 sig_store_i++;
-                assert(sig_store_i < nsample);
+                assert(sig_store_i <= nsample);
             }
             int sig_size = sig_store_i;
             sig_store_i = 0;
-            median = mediani16(sig_store,sig_size);
+            median = medianf(sig_store,sig_size);
             // use this with outlier rejection to fix stdev thresholds
-            stdev = stdvi16(sig_store,sig_size);
+            stdev = stdvf(sig_store,sig_size);
             top = median + (stdev * std_scale);
+            //fprintf(stderr,"median: %f, stdev: %f, top: %f\n", median, stdev, top);
+            chunk = sig_store;
+            current_chunk_size = sig_size;
         }
-
 
         for (int i=0; i< current_chunk_size; i++){
             sig_length++;
-            a = chunks[chunk_i][i];
+            a = chunk[i];
+            //fprintf(stderr,"%d: %f\n", sig_length, a);
             if (a < top){ // If datapoint is within range
                 if (!prev){
                     start = sig_length;
@@ -154,7 +162,7 @@ void jnn_v3(const int16_t *raw, int64_t nsample){
                     prev_err = 0;
                 }
                 else if (seg_i && (segs[seg_i-1].y-segs[seg_i-1].x >= min_seg_len) && sig_length - segs[seg_i-1].y > seg_dist){
-                    //fprintf(stderr,"Break point: %ld\n",sig_length);
+                    //fprintf(stderr,"Break point: %ld; segs %d\n",sig_length, seg_i);
                     prev = 0;
                     c = 0;
                     err = 0;
@@ -207,7 +215,9 @@ int real_main(int argc, char* argv[]){
 
     while((ret = slow5_get_next(&rec,sp)) >= 0){
         printf("%s\t%ld\t",rec->read_id,rec->len_raw_signal);
-        jnn_v3(rec->raw_signal, rec->len_raw_signal);
+        float *signal = signal_in_picoamps(rec);
+        jnn_v3(signal, rec->len_raw_signal);
+        free(signal);
     }
 
     if(ret != SLOW5_ERR_EOF){  //check if proper end of file has been reached
