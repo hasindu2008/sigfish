@@ -29,53 +29,121 @@ float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_ch
     return chunks;
 }
 
+typedef struct {
+    float std_scale;
+    int corrector; //corrector, window to increase total error thresh
+    int seg_dist; // distance between 2 segs to be merged as one
+    int window;
+    int error;
+    int min_seg_len;
+} jnnv3_param_t;
+
+//dRNA realtime adaptor
+#define JNNV3_ADAPTOR { \
+    .std_scale = 0.9, \
+    .corrector = 1200, \
+    .seg_dist = 1800, \
+    .window = 300, \
+    .error = 5, \
+    .min_seg_len = 4000, \
+} \
+
+typedef struct {
+
+    int8_t prev;  // previous string
+    int err;       // total error
+    int prev_err;  // consecutive error
+    int c;         // counter
+    int w;       // window to increase total error thresh (corrector)
+    int start;     // start pos
+    int end;       // end pos
+    int8_t adapter_found;
+    int64_t sig_length;
+    float median;
+    float stdev;
+    float top;
+
+    int seg_c;
+    jnn_pair_t * segs;
+    int seg_i;
+
+} jnnv3_state_t;
+
+
+jnnv3_state_t *init_jnnv3_state(jnnv3_param_t param){
+    jnnv3_state_t *state = (jnnv3_state_t *)malloc(sizeof(jnnv3_state_t));
+    MALLOC_CHK(state);
+
+    state->prev = 0;  // previous string
+    state->err = 0;       // total error
+    state->prev_err = 0;  // consecutive error
+    state->c = 0;         // counter
+    state->w = param.corrector;       // window to increase total error thresh (corrector)
+    state->start = 0;     // start pos
+    state->end = 0;       // end pos
+    state->adapter_found = 0;
+    state->sig_length = 0;
+    state->median = 0;
+    state->stdev = 0;
+    state->top = 0;
+
+    state->seg_i = 0;
+    state->seg_c = SIGTK_SIZE;
+    state->segs = (jnn_pair_t *)malloc(sizeof(jnn_pair_t)*state->seg_c);
+    MALLOC_CHK(state->segs);
+
+    return state;
+}
+
+void free_jnnv3_state(jnnv3_state_t *state){
+    free(state->segs);
+    free(state);
+    return;
+}
+
+void reset_jnnv3_state(jnnv3_state_t *state, jnnv3_param_t param){
+    state->prev = 0;  // previous string
+    state->err = 0;       // total error
+    state->prev_err = 0;  // consecutive error
+    state->c = 0;         // counter
+    state->w = param.corrector;       // window to increase total error thresh (corrector)
+    state->start = 0;     // start pos
+    state->end = 0;       // end pos
+    state->adapter_found = 0;
+    state->sig_length = 0;
+    state->median = 0;
+    state->stdev = 0;
+    state->top = 0;
+    state->seg_i = 0;
+}
 
 void jnn_v3(const float *raw, int64_t nsample){
 
     // now feed algorithm with chunks of signal simulating real-time
     const int chunk_size = 1200;
-    const int num_chunks = (nsample + chunk_size -1) / chunk_size;
-
-    float **chunks = get_chunks(raw, nsample, chunk_size, num_chunks);
-
     const int start_chunks = 6; //num of chunks to store before processing
+    const int num_chunks = (nsample + chunk_size -1) / chunk_size;
+    float **chunks = get_chunks(raw, nsample, chunk_size, num_chunks);
 
     float *sig_store = (float *)malloc(sizeof(float)*nsample);
     MALLOC_CHK(sig_store);
     int sig_store_i = 0;
 
-    int64_t sig_length = 0;
+    jnnv3_param_t param = JNNV3_ADAPTOR;
+
+    const int seg_dist = param.seg_dist;  // distance between 2 segs to be merged as one
+    const int window = param.window; //Minimum segment window size to be detected
+    const float std_scale = param.std_scale; //Scale factor of STDev about median
+    const int error = param.error; //Allowable error in segment algorithm
+    const int min_seg_len = param.min_seg_len; //Minimum length of a segment to be constructed
 
     // this is the algo. Simple yet effective
-    int8_t prev = 0;  // previous string
-    int err = 0;       // total error
-    int prev_err = 0;  // consecutive error
-    int c = 0;         // counter
-    int w = 1200;       // window to increase total error thresh (corrector)
-    const int seg_dist = 1800;  // distance between 2 segs to be merged as one
-    int start = 0;     // start pos
-    int end = 0;       // end pos
-    int8_t adapter_found = 0;
-    const int window = 300; //Minimum segment window size to be detected
-    const float std_scale = 0.9; //Scale factor of STDev about median
-    const int error = 5; //Allowable error in segment algorithm
-    const int min_seg_len = 4000; //Minimum length of a segment to be constructed
 
-    int seg_c = SIGTK_SIZE;
-    jnn_pair_t * segs = (jnn_pair_t *)malloc(sizeof(jnn_pair_t)*seg_c);
-    MALLOC_CHK(segs);
-    int seg_i = 0;
-
-    //float mean = 0;
-    float median = 0;
-    float stdev = 0;
-    float top = 0;
-    float a = 0;
+    jnnv3_state_t *s= init_jnnv3_state(param);
 
     for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
 
         // print("chunk {}".format(chunk))
-
         int current_chunk_size = (chunk_i == num_chunks-1) ? nsample - chunk_i*chunk_size : chunk_size;
         float *chunk = chunks[chunk_i];
         //fprintf(stderr,"processing chunk: %d, size %d\n", chunk_i, current_chunk_size);
@@ -99,75 +167,75 @@ void jnn_v3(const float *raw, int64_t nsample){
             }
             int sig_size = sig_store_i;
             sig_store_i = 0;
-            median = medianf(sig_store,sig_size);
-            // use this with outlier rejection to fix stdev thresholds
-            stdev = stdvf(sig_store,sig_size);
-            top = median + (stdev * std_scale);
-            //fprintf(stderr,"median: %f, stdev: %f, top: %f\n", median, stdev, top);
+            s->median = medianf(sig_store ,sig_size);
+            // use this with outlier rejection to fix s->stdev thresholds
+            s->stdev = stdvf(sig_store,sig_size);
+            s->top = s->median + (s->stdev * std_scale);
+            //fprintf(stderr,"s->median: %f, s->stdev: %f, s->top: %f\n", s->median, s->stdev, s->top);
             chunk = sig_store;
             current_chunk_size = sig_size;
         }
 
         for (int i=0; i< current_chunk_size; i++){
-            sig_length++;
-            a = chunk[i];
-            //fprintf(stderr,"%d: %f\n", sig_length, a);
-            if (a < top){ // If datapoint is within range
-                if (!prev){
-                    start = sig_length;
-                    prev = 1;
+            s->sig_length++;
+            float a = chunk[i];
+            //fprintf(stderr,"%d: %f\n", s->sig_length, a);
+            if (a < s->top){ // If datapoint is within range
+                if (!s->prev){
+                    s->start = s->sig_length;
+                    s->prev = 1;
                 }
-                c++; // increase counter
-                w++; // increase window corrector count
-                if (prev_err){
-                    prev_err = 0;
+                s->c++; // increase counter
+                s->w ++; // increase window corrector count
+                if (s->prev_err){
+                    s->prev_err = 0;
                 }
-                if (c >= window && c >= w && !(c % w)){ // if current window longer than detect limit, and corrector, and is divisible by corrector
-                    err -= 1; // drop current error count by 1
+                if (s->c >= window && s->c >= s->w  && !(s->c % s->w )){ // if current window longer than detect limit, and corrector, and is divisible by corrector
+                    s->err -= 1; // drop current error count by 1
                 }
             }
             else{
-                if (prev && err < error){
-                    c++;
-                    err++;
-                    prev_err++;
-                    if (c >= window && c >= w && !(c % w)){
-                        err -= 1;
+                if (s->prev && s->err < error){
+                    s->c++;
+                    s->err++;
+                    s->prev_err++;
+                    if (s->c >= window && s->c >= s->w  && !(s->c % s->w )){
+                        s->err -= 1;
                     }
                 }
-                else if (prev && c >= window){
-                    end = sig_length - prev_err; // go back to where error stretch began for accurate cutting
-                    prev = 0;
-                    if (seg_i && start - segs[seg_i-1].y < seg_dist){ // if segs very close, merge them
-                        segs[seg_i-1].y = end;
+                else if (s->prev && s->c >= window){
+                    s->end = s->sig_length - s->prev_err; // go back to where error stretch began for accurate cutting
+                    s->prev = 0;
+                    if (s->seg_i && s->start - s->segs[s->seg_i-1].y < seg_dist){ // if segs very close, merge them
+                        s->segs[s->seg_i-1].y = s->end;
                     }
                     else{
-                        if(seg_i>=seg_c){
-                            seg_c *= 2;
-                            segs = (jnn_pair_t *)realloc(segs,sizeof(jnn_pair_t)*seg_c);
-                            MALLOC_CHK(segs);
+                        if(s->seg_i>=s->seg_c){
+                            s->seg_c *= 2;
+                            s->segs = (jnn_pair_t *)realloc(s->segs,sizeof(jnn_pair_t)*s->seg_c);
+                            MALLOC_CHK(s->segs);
                         }
-                        segs[seg_i].x = start;
-                        segs[seg_i].y = end;
-                        seg_i++;
+                        s->segs[s->seg_i].x = s->start;
+                        s->segs[s->seg_i].y = s->end;
+                        s->seg_i++;
                     }
-                    c = 0;
-                    err = 0;
-                    prev_err = 0;
+                    s->c = 0;
+                    s->err = 0;
+                    s->prev_err = 0;
                 }
-                else if (prev) {
-                    prev = 0;
-                    c = 0;
-                    err = 0;
-                    prev_err = 0;
+                else if (s->prev) {
+                    s->prev = 0;
+                    s->c = 0;
+                    s->err = 0;
+                    s->prev_err = 0;
                 }
-                else if (seg_i && (segs[seg_i-1].y-segs[seg_i-1].x >= min_seg_len) && sig_length - segs[seg_i-1].y > seg_dist){
-                    //fprintf(stderr,"Break point: %ld; segs %d\n",sig_length, seg_i);
-                    prev = 0;
-                    c = 0;
-                    err = 0;
-                    prev_err = 0;
-                    adapter_found = 1;
+                else if (s->seg_i && (s->segs[s->seg_i-1].y-s->segs[s->seg_i-1].x >= min_seg_len) && s->sig_length - s->segs[s->seg_i-1].y > seg_dist){
+                    //fprintf(stderr,"Break point: %ld; s->segs %d\n",s->sig_length, s->seg_i);
+                    s->prev = 0;
+                    s->c = 0;
+                    s->err = 0;
+                    s->prev_err = 0;
+                    s->adapter_found = 1;
                     break;
                 }
                 else{
@@ -175,24 +243,24 @@ void jnn_v3(const float *raw, int64_t nsample){
                 }
             }
         }
-        if (adapter_found){
+        if (s->adapter_found){
             break;
         }
     }
 
-    if(seg_i<=0){
-        assert(adapter_found == 0);
+    if(s->seg_i<=0){
+        assert(s->adapter_found == 0);
         printf(".\t.\n");
     } else{
-        printf("%ld\t%ld\n",segs[0].x,segs[0].y);
+        printf("%ld\t%ld\n",s->segs[0].x,s->segs[0].y);
     }
 
     for (int i=0; i<num_chunks; i++){
         free(chunks[i]);
     }
     free(chunks);
-    free(segs);
     free(sig_store);
+    free_jnnv3_state(s);
 
 }
 
