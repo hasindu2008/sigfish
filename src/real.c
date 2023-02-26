@@ -369,11 +369,14 @@ void jnnv3_pcore(jnnv3_pstate_t *t, jnnv3_pparam_t param, float *chunk, int curr
         }
     }
 
+    if(t->seg_i){
+        t->polya_found = 1;
+    }
 
 }
 
 
-void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s){
+void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t){
 
     // now feed algorithm with chunks of signal simulating real-time
     const int chunk_size = 1200;
@@ -387,10 +390,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
     // this is the algo. Simple yet effective
     reset_jnnv3_astate(s,param);
-    jnn_pair_t polya = {-1,-1};
-
-    jnnv3_pparam_t pparam = JNNV3_POLYA;
-    jnnv3_pstate_t *t = init_jnnv3_pstate(pparam);
+    reset_jnnv3_pstate(t,pparam);
 
     for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
 
@@ -422,18 +422,22 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
         if (!s->adapter_found){
             jnnv3_acore(s, param, chunk, current_chunk_size);
+            if (s->adapter_found){
+                jnn_pair_t p = s->segs[0];
+                jnnv3_pcalc_param(t,p,sig_store,sig_store_i);
+                chunk = &sig_store[p.y];
+                current_chunk_size = sig_store_i-p.y;
+
+            }
         }
 
-        if (s->adapter_found){
-            jnn_pair_t p = s->segs[0];
-            jnnv3_pcalc_param(t,p,sig_store,sig_store_i);
-            float *adapt_end = &sig_store[p.y];
-            jnnv3_pcore(t, pparam,adapt_end,sig_store_i-p.y);
-            if(t->seg_i){
-                polya = t->segs[0];
+        if(s->adapter_found){
+            jnnv3_pcore(t, pparam,chunk,current_chunk_size);
+            if(t->polya_found){
+                break;
             }
-            break;
         }
+
 
     }
 
@@ -443,11 +447,13 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
     } else{
         printf("%ld\t%ld\t",s->segs[0].x,s->segs[0].y);
     }
-    if(polya.y > 0){
+    if(t->seg_i <= 0){
+        assert(t->polya_found == 0);
+        printf(".\t.\n");
+    } else {
+        jnn_pair_t polya = t->segs[0];
         assert(polya.y + s->segs[0].y < sig_store_i);
         printf("%ld\t%ld\n",polya.x+s->segs[0].y-1, polya.y+s->segs[0].y-1);
-    }else{
-        printf(".\t.\n");
     }
 
 
@@ -456,7 +462,6 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
     }
     free(chunks);
     free(sig_store);
-    free_jnnv3_pstate(t);
 
 }
 
@@ -475,15 +480,17 @@ int real_main(int argc, char* argv[]){
     slow5_rec_t *rec = NULL;
     int ret=0;
 
-    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\n");
+    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
 
     const jnnv3_aparam_t param = JNNV3_ADAPTOR;
     jnnv3_astate_t *s= init_jnnv3_astate(param);
+    const jnnv3_pparam_t pparam = JNNV3_POLYA;
+    jnnv3_pstate_t *t = init_jnnv3_pstate(pparam);
 
     while((ret = slow5_get_next(&rec,sp)) >= 0){
         printf("%s\t%ld\t",rec->read_id,rec->len_raw_signal);
         float *signal = signal_in_picoamps(rec);
-        jnn_v3(signal, rec->len_raw_signal, param, s);
+        jnn_v3(signal, rec->len_raw_signal, param, s, pparam, t);
         free(signal);
     }
 
@@ -493,6 +500,7 @@ int real_main(int argc, char* argv[]){
     }
 
     free_jnnv3_astate(s);
+    free_jnnv3_pstate(t);
     slow5_rec_free(rec);
     slow5_close(sp);
 
