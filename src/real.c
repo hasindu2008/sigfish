@@ -431,13 +431,26 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             }
         }
 
-        if(s->adapter_found){
+        if(s->adapter_found && !t->polya_found){
             jnnv3_pcore(t, pparam,chunk,current_chunk_size);
-            if(t->polya_found){
-                break;
-            }
         }
 
+        if(t->polya_found){
+            assert(s->adapter_found == 1);
+            assert(t->seg_i > 0);
+            assert(s->seg_i > 0);
+            jnn_pair_t polya = t->segs[0];
+            jnn_pair_t adapt = s->segs[0];
+            int st = polya.y+adapt.y-1;
+            int leftover = sig_store_i - st;
+            if(leftover >= 6000){
+                fprintf(stderr,"leftover: %d, running DTW\n", leftover);
+                break;
+            } else {
+                fprintf(stderr,"leftover: %d, waiting for more\n", leftover);
+            }
+
+        }
 
     }
 
