@@ -13,6 +13,7 @@
 #include "sigfish.h"
 #include "misc.h"
 #include "jnn.h"
+#include "cdtw.h"
 
 float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_chunks){
     float **chunks = (float **)malloc(sizeof(float *)*num_chunks);
@@ -375,8 +376,81 @@ void jnnv3_pcore(jnnv3_pstate_t *t, jnnv3_pparam_t param, float *chunk, int curr
 
 }
 
+#define QUERY_SIZE_EVENTS 250
+#define QUERY_SIZE_SIG 6000
+void normalise_events(event_t *rawptr,int64_t start_idx,int64_t end_idx);
+aln_t *init_aln();
+void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float *cost, int32_t qlen, int32_t rlen);
+void update_min(int32_t *min_pos_p, float *min_score_p, float *cost, int32_t qlen, int32_t rlen, int32_t k);
+void update_best_aln(aln_t *best, aln_t* aln, refsynth_t *ref);
 
-void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t){
+static aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id){
+    assert(ref != NULL);
+    assert(raw != NULL);
+    assert(nsample > 0);
+    assert(nsample-polyend >= QUERY_SIZE_SIG);
+    int8_t rna = 1;
+
+    aln_t best_aln = {0};
+    best_aln.pos_st = -1;
+
+    event_table et = getevents(nsample, raw, rna);
+    if(et.n > 0){
+        int64_t start_idx = -1;
+        int64_t end_idx = -1;
+        int i = 0;
+        while(i < et.n && et.event[i].start < (uint64_t)polyend) i++;
+        start_idx = i;
+        assert((uint64_t)start_idx < et.n);
+        end_idx = start_idx + QUERY_SIZE_EVENTS;
+
+        if (start_idx + 25 > et.n ){
+            fprintf(stderr,"WARNING: not enough events to map - a weird read (<25 events in %ld samples)\n",nsample-polyend);
+            start_idx = 0;end_idx = 0;
+        } else if(end_idx > et.n){
+            fprintf(stderr,"WARNING: Only %ld events in %ld samples\n",et.n-start_idx,nsample-polyend);
+            end_idx = et.n;
+        }
+        normalise_events(et.event,start_idx,end_idx);
+
+        aln_t *aln=init_aln();
+        int32_t qlen = end_idx - start_idx;
+
+        float *query = (float *)malloc(sizeof(float)*qlen);
+        MALLOC_CHK(query);
+
+        for(int j=0;j<qlen;j++){
+            query[qlen-1-j] = et.event[j+start_idx].mean;
+        }
+
+        for(int j=0;j<ref->num_ref;j++){
+            int32_t rlen =ref->ref_lengths[j];
+            float *cost = (float *)malloc(sizeof(float) * qlen * rlen);
+            MALLOC_CHK(cost);
+            subsequence(query, ref->forward[j], qlen , rlen, cost);
+            for(int k=(qlen-1)*rlen; k< qlen*rlen; k+=qlen){
+                float min_score = INFINITY;
+                int32_t min_pos = -1;
+                update_min(&min_pos, &min_score, cost, qlen, rlen, k);
+                update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen);
+            }
+            free(cost);
+        }
+
+        free(query);
+        update_best_aln(&best_aln, aln, ref);
+        free(aln);
+
+        if(best_aln.pos_st > 0){
+            print_aln(start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
+        }
+    }
+    free(et.event);
+
+    return best_aln;
+}
+
+void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t, refsynth_t *ref, char *read_id){
 
     // now feed algorithm with chunks of signal simulating real-time
     const int chunk_size = 1200;
@@ -391,6 +465,8 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
     // this is the algo. Simple yet effective
     reset_jnnv3_astate(s,param);
     reset_jnnv3_pstate(t,pparam);
+    aln_t best_aln = {0};
+    best_aln.pos_st = -1;
 
     for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
 
@@ -443,30 +519,35 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             jnn_pair_t adapt = s->segs[0];
             int st = polya.y+adapt.y-1;
             int leftover = sig_store_i - st;
-            if(leftover >= 6000){
-                fprintf(stderr,"leftover: %d, running DTW\n", leftover);
+            if(leftover >= QUERY_SIZE_SIG){
+                //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
+                if(ref){
+                    best_aln=map(ref, sig_store, sig_store_i, st, read_id);
+                }
                 break;
             } else {
-                fprintf(stderr,"leftover: %d, waiting for more\n", leftover);
+                //fprintf(stderr,"leftover: %d, waiting for more\n", leftover);
             }
 
         }
 
     }
 
-    if(s->seg_i<=0){
-        assert(s->adapter_found == 0);
-        printf(".\t.\t");
-    } else{
-        printf("%ld\t%ld\t",s->segs[0].x,s->segs[0].y);
-    }
-    if(t->seg_i <= 0){
-        assert(t->polya_found == 0);
-        printf(".\t.\n");
-    } else {
-        jnn_pair_t polya = t->segs[0];
-        assert(polya.y + s->segs[0].y < sig_store_i);
-        printf("%ld\t%ld\n",polya.x+s->segs[0].y-1, polya.y+s->segs[0].y-1);
+    if(ref==NULL){
+        if(s->seg_i<=0){
+            assert(s->adapter_found == 0);
+            printf(".\t.\t");
+        } else{
+            printf("%ld\t%ld\t",s->segs[0].x,s->segs[0].y);
+        }
+        if(t->seg_i <= 0){
+            assert(t->polya_found == 0);
+            printf(".\t.\n");
+        } else {
+            jnn_pair_t polya = t->segs[0];
+            assert(polya.y + s->segs[0].y < sig_store_i);
+            printf("%ld\t%ld\n",polya.x+s->segs[0].y-1, polya.y+s->segs[0].y-1);
+        }
     }
 
 
@@ -478,10 +559,13 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
 }
 
+
+
 int real_main(int argc, char* argv[]){
 
     if(argc < 2){
-        fprintf(stderr,"Usage: %s <file>\n", argv[0]);
+        fprintf(stderr,"Usage: sigfish %s <file.blow5>\n", argv[0]);
+        fprintf(stderr,"Usage: sigfish %s <file.blow5> <ref.fa>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -493,7 +577,22 @@ int real_main(int argc, char* argv[]){
     slow5_rec_t *rec = NULL;
     int ret=0;
 
-    printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
+    refsynth_t *ref = NULL;
+    if(argc == 3){
+        const char *ref_name = argv[2];
+        assert(ref_name != NULL);
+        model_t *pore_model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
+        MALLOC_CHK(pore_model);
+        uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
+        uint32_t flag = 0;
+        flag |= SIGFISH_RNA;
+        int32_t query_size = QUERY_SIZE_EVENTS;
+        ref = gen_ref(ref_name, pore_model, kmer_size, flag, query_size);
+        free(pore_model);
+
+    }
+
+    if(ref == NULL) printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
 
     const jnnv3_aparam_t param = JNNV3_ADAPTOR;
     jnnv3_astate_t *s= init_jnnv3_astate(param);
@@ -501,9 +600,9 @@ int real_main(int argc, char* argv[]){
     jnnv3_pstate_t *t = init_jnnv3_pstate(pparam);
 
     while((ret = slow5_get_next(&rec,sp)) >= 0){
-        printf("%s\t%ld\t",rec->read_id,rec->len_raw_signal);
+        if(ref == NULL) printf("%s\t%ld\t",rec->read_id,rec->len_raw_signal);
         float *signal = signal_in_picoamps(rec);
-        jnn_v3(signal, rec->len_raw_signal, param, s, pparam, t);
+        jnn_v3(signal, rec->len_raw_signal, param, s, pparam, t, ref, rec->read_id);
         free(signal);
     }
 
@@ -516,6 +615,10 @@ int real_main(int argc, char* argv[]){
     free_jnnv3_pstate(t);
     slow5_rec_free(rec);
     slow5_close(sp);
+
+    if(ref != NULL){
+        free_ref(ref);
+    }
 
     return 0;
 }

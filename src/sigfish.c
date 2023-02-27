@@ -336,6 +336,27 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
 
 }
 
+void normalise_events(event_t *rawptr,int64_t start_idx,int64_t end_idx){
+    float event_mean = 0;
+    float event_var = 0;
+    float event_stdv = 0;
+    float num_samples = end_idx-start_idx;
+
+    for(int64_t j=start_idx; j<end_idx; j++){
+        event_mean += rawptr[j].mean;
+    }
+    event_mean /= num_samples;
+    for(int64_t j=start_idx; j<end_idx; j++){
+        event_var += (rawptr[j].mean-event_mean)*(rawptr[j].mean-event_mean);
+    }
+    event_var /= num_samples;
+    event_stdv = sqrt(event_var);
+
+    for(int64_t j=start_idx; j<end_idx; j++){
+        rawptr[j].mean = (rawptr[j].mean-event_mean)/event_stdv;
+    }
+}
+
 void normalise_single(core_t* core,db_t* db, int32_t i) {
 
 
@@ -394,27 +415,8 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
         db->qstart[i] = start_idx;
         db->qend[i] = end_idx;
 
+        normalise_events(db->et[i].event,start_idx,end_idx);
 
-        float event_mean = 0;
-        float event_var = 0;
-        float event_stdv = 0;
-        float num_samples = end_idx-start_idx;
-
-        event_t *rawptr = db->et[i].event;
-
-        for(int64_t j=start_idx; j<end_idx; j++){
-            event_mean += rawptr[j].mean;
-        }
-        event_mean /= num_samples;
-        for(int64_t j=start_idx; j<end_idx; j++){
-            event_var += (rawptr[j].mean-event_mean)*(rawptr[j].mean-event_mean);
-        }
-        event_var /= num_samples;
-        event_stdv = sqrt(event_var);
-
-        for(int64_t j=start_idx; j<end_idx; j++){
-            rawptr[j].mean = (rawptr[j].mean-event_mean)/event_stdv;
-        }
     }
 
 }
@@ -479,6 +481,36 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
 
 }
 
+void update_min(int32_t *min_pos_p, float *min_score_p, float *cost, int32_t qlen, int32_t rlen, int32_t k){
+    float min_score = INFINITY;
+    int32_t min_pos = -1;
+    for(int m=0;m<qlen && k+m<qlen*rlen;m++){
+        if(cost[k+m] < min_score){
+            min_score = cost[k+m];
+            min_pos = m+k;
+        }
+    }
+    *min_pos_p = min_pos;
+    *min_score_p = min_score;
+}
+
+void update_best_aln(aln_t *best, aln_t* aln, refsynth_t *ref){
+    best->score = aln[SECONDARY_CAP-1].score;
+    best->score2 = aln[SECONDARY_CAP-2].score;
+    best->pos_st = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_st : ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_end  ;
+    best->pos_end = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_end : ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_st  ;
+
+    best->pos_st +=ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
+    best->pos_end += ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
+    best->rid = aln[SECONDARY_CAP-1].rid;
+    best->d = aln[SECONDARY_CAP-1].d;
+
+    int mapq=(int)round(500*(best->score2-best->score)/best->score);
+    if(mapq>60){
+        mapq=60;
+    }
+    best->mapq = mapq;
+}
 
 void dtw_single(core_t* core,db_t* db, int32_t i) {
 
@@ -546,12 +578,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                 for(int k=(qlen-1)*rlen; k< qlen*rlen; k+=qlen){
                     float min_score = INFINITY;
                     int32_t min_pos = -1;
-                    for(int m=0;m<qlen && k+m<qlen*rlen;m++){
-                        if(cost[k+m] < min_score){
-                            min_score = cost[k+m];
-                            min_pos = m+k;
-                        }
-                    }
+                    update_min(&min_pos, &min_score, cost, qlen, rlen, k);
                     update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen);
                 }
 
@@ -620,22 +647,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         free(query);
 
-
-        db->aln[i].score = aln[SECONDARY_CAP-1].score;
-        db->aln[i].score2 = aln[SECONDARY_CAP-2].score;
-        db->aln[i].pos_st = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_st : core->ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_end  ;
-        db->aln[i].pos_end = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_end : core->ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_st  ;
-
-        db->aln[i].pos_st += core->ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
-        db->aln[i].pos_end += core->ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
-        db->aln[i].rid = aln[SECONDARY_CAP-1].rid;
-        db->aln[i].d = aln[SECONDARY_CAP-1].d;
-
-        int mapq=(int)round(500*(db->aln[i].score2-db->aln[i].score)/db->aln[i].score);
-        if(mapq>60){
-            mapq=60;
-        }
-        db->aln[i].mapq = mapq;
+        update_best_aln(&(db->aln[i]), aln, core->ref);
 
         free(aln);
     }
@@ -697,6 +709,41 @@ void process_db(core_t* core,db_t* db){
     core->process_db_time += (proc_end-proc_start);
 }
 
+void print_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
+    // Output of results
+    //uint64_t start_event_idx =  db->qstart[i];
+    //uint64_t end_event_idx =  db->qend[i];
+
+    assert(start_event_idx>=0 && start_event_idx<=et.n);
+    assert(end_event_idx>=0 && end_event_idx<=et.n);
+    uint64_t start_raw_idx = et.event[start_event_idx].start; //inclusive
+    uint64_t end_raw_idx = et.event[end_event_idx].start + et.event[end_event_idx].length; //exclusive
+
+    uint64_t query_size =  end_event_idx-start_event_idx;
+    float block_len = aln.pos_end - aln.pos_st;
+    float residue = block_len - aln.score*block_len/(query_size) ;
+
+    // if(aln.score>70){
+    //     continue;
+    // }
+
+    printf("%s\t",read_id); // read id name
+    printf("%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+    printf("%c\t",aln.d); // Direction
+    printf("%s\t",ref->ref_names[aln.rid]); // reference sequence name
+    printf("%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
+
+
+    printf("%d\t",aln.pos_st); // Reference start
+    printf("%d\t",aln.pos_end); // Reference end
+    printf("%d\t",(int)round(residue)); // Number of residues //todo check this
+    printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
+    printf("%d\t",aln.mapq); // Mapq
+    printf("tp:A:P\t");
+    printf("d1:f:%.2f\t",aln.score); // distance of the best match
+    printf("d2:f:%.2f\n",aln.score2); // distance of the second best matcj
+}
+
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db) {
 
@@ -716,39 +763,7 @@ void output_db(core_t* core, db_t* db) {
         // printf("\n");
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
-
-            // Output of results
-            uint64_t start_event_idx =  db->qstart[i];
-            uint64_t end_event_idx =  db->qend[i];
-            assert(start_event_idx>=0 && start_event_idx<=db->et[i].n);
-            assert(end_event_idx>=0 && end_event_idx<=db->et[i].n);
-            uint64_t start_raw_idx = db->et[i].event[start_event_idx].start; //inclusive
-            uint64_t end_raw_idx = db->et[i].event[end_event_idx].start + db->et[i].event[end_event_idx].length; //exclusive
-
-            uint64_t query_size =  end_event_idx-start_event_idx;
-            float block_len = db->aln[i].pos_end - db->aln[i].pos_st;
-            float residue = block_len - db->aln[i].score*block_len/(query_size) ;
-
-            // if(db->aln[i].score>70){
-            //     continue;
-            // }
-
-            printf("%s\t",db->slow5_rec[i]->read_id); // read id name
-            printf("%ld\t%ld\t%ld\t", db->slow5_rec[i]->len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
-            printf("%c\t",db->aln[i].d); // Direction
-            printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // reference sequence name
-            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // reference sequence length
-
-
-            printf("%d\t",db->aln[i].pos_st); // Reference start
-            printf("%d\t",db->aln[i].pos_end); // Reference end
-            printf("%d\t",(int)round(residue)); // Number of residues //todo check this
-            printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
-            printf("%d\t",db->aln[i].mapq); // Mapq
-            printf("tp:A:P\t");
-            printf("d1:f:%.2f\t",db->aln[i].score); // distance of the best match
-            printf("d2:f:%.2f\n",db->aln[i].score2); // distance of the second best matcj
-
+            print_aln(db->qstart[i], db->qend[i], db->et[i], db->aln[i],  core->ref, db->slow5_rec[i]->read_id, db->slow5_rec[i]->len_raw_signal);
         }
 
     }
