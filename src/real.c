@@ -383,7 +383,7 @@ aln_t *init_aln();
 void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float *cost, int32_t qlen, int32_t rlen);
 void update_min(int32_t *min_pos_p, float *min_score_p, float *cost, int32_t qlen, int32_t rlen, int32_t k);
 void update_best_aln(aln_t *best, aln_t* aln, refsynth_t *ref);
-
+void print_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal);
 static aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id){
     assert(ref != NULL);
     assert(raw != NULL);

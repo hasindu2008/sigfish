@@ -854,7 +854,7 @@ sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads){
     state->threads = threads;
     state->status = (enum sigfish_status*)calloc(num_channels,sizeof(enum sigfish_status));
     MALLOC_CHK(state->status);
-    state->reads = (sigfish_read_t *)calloc(num_channels,sizeof(sigfish_read_t));
+    state->reads = (sigfish_rstate_t *)calloc(num_channels,sizeof(sigfish_rstate_t));
     MALLOC_CHK(state->reads);
 
     for(int i=0;i<num_channels;i++){
@@ -877,13 +877,16 @@ void free_sigfish(sigfish_state_t *state){
 #define SIGFISH_CHUNK_SIZE 1200
 #define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
 
-enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch){
+enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size){
 
-    for(int i=0;i<state->num_channels;i++){
+    enum sigfish_status *status = (enum sigfish_status *)calloc(state->num_channels,sizeof(enum sigfish_status));
+    MALLOC_CHK(status);
 
-        fprintf(stderr,"num channels %d\n",state->num_channels);
+    for(int i=0;i<batch_size;i++){
+
+        int channel = read_batch[i].channel;
         //populate
-        sigfish_read_t *r = &state->reads[i];
+        sigfish_rstate_t *r = &state->reads[channel];
         if (r->read_number == read_batch[i].read_number){ //same read number
             if(r->c_raw_signal < r->len_raw_signal + read_batch[i].len_raw_signal){
                 r->c_raw_signal = r->len_raw_signal + read_batch[i].len_raw_signal;
@@ -895,7 +898,7 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
             fprintf(stderr,"read %d len %ld\n",r->read_number,r->len_raw_signal);
         } else { //new read number
             r->len_raw_signal = read_batch[i].len_raw_signal;
-            state->status[i] = 0;
+            state->status[channel] = status[i] = 0;
             if(r->c_raw_signal < read_batch[i].len_raw_signal){
                 r->c_raw_signal = read_batch[i].len_raw_signal;
                 r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
@@ -909,7 +912,7 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
 
         //if too short to start detecting adaptor
         if (r->len_raw_signal < SIGFISH_MIN_SAMPLES){
-            state->status[i] = SIGFISH_MORE;
+            state->status[channel] = status[i] = SIGFISH_MORE;
         } else {
 
             //detect adaptor
@@ -920,9 +923,9 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
             sum /= SIGFISH_CHUNK_SIZE;
 
             if((int)sum % 2 == 0){
-                state->status[i] = SIGFISH_REJECT;
+                state->status[channel] = status[i] = SIGFISH_REJECT;
             } else {
-                state->status[i] = SIGFISH_CONT;
+                state->status[channel] = status[i] = SIGFISH_CONT;
             }
 
             //detect polya
@@ -933,7 +936,5 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
 
     }
 
-
-
-    return state->status;
+    return status;
 }
