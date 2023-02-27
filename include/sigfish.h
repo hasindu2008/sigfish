@@ -256,25 +256,30 @@ enum sigfish_status{
 //realtime sigfish
 typedef struct{
     int32_t read_number;
+    int32_t channel;
     uint64_t len_raw_signal;
     float* raw_signal;
-
-    //private
-    uint64_t c_raw_signal;
-
 } sigfish_read_t;
+
+typedef struct{
+    int32_t read_number;
+    uint64_t len_raw_signal;
+    float* raw_signal;
+    uint64_t c_raw_signal;
+} sigfish_rstate_t;
+
 
 typedef struct{
     uint32_t num_channels;
     int threads;
     const char *ref;
     enum sigfish_status *status;
-    sigfish_read_t *reads;
+    sigfish_rstate_t *reads;
 } sigfish_state_t;
 
 sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads);
 void free_sigfish(sigfish_state_t *state);
-enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch);
+enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size);
 
 /******************************************
  * function prototype for major functions *
