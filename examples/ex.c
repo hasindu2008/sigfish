@@ -1,12 +1,12 @@
 #include <sigfish.h>
 
-#define CHANNELS 512
+#define CHANNELS 10
 #define CHUNK_SIZE 1200
 #define ROUNDS 10
 
 int main(){
 
-    sigfish_state_t *state = init_sigfish(NULL, CHANNELS, 1);
+    sigfish_state_t *state = init_sigfish(NULL, CHANNELS, 4);
     sigfish_read_t reads[CHANNELS];
 
     for(int r=0; r<ROUNDS; r++){

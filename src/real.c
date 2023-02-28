@@ -100,7 +100,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             if(leftover >= QUERY_SIZE_SIG){
                 //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
                 if(ref){
-                    best_aln=map(ref, sig_store, sig_store_i, st, read_id);
+                    best_aln=map(ref, sig_store, sig_store_i, st, read_id, stdout);
                 }
                 break;
             } else {

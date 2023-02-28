@@ -710,7 +710,7 @@ void process_db(core_t* core,db_t* db){
     core->process_db_time += (proc_end-proc_start);
 }
 
-void print_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
+void print_aln(FILE *fp, int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
     // Output of results
     //uint64_t start_event_idx =  db->qstart[i];
     //uint64_t end_event_idx =  db->qend[i];
@@ -728,21 +728,21 @@ void print_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, a
     //     continue;
     // }
 
-    printf("%s\t",read_id); // read id name
-    printf("%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
-    printf("%c\t",aln.d); // Direction
-    printf("%s\t",ref->ref_names[aln.rid]); // reference sequence name
-    printf("%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
+    fprintf(fp,"%s\t",read_id); // read id name
+    fprintf(fp,"%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+    fprintf(fp,"%c\t",aln.d); // Direction
+    fprintf(fp,"%s\t",ref->ref_names[aln.rid]); // reference sequence name
+    fprintf(fp,"%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
 
 
-    printf("%d\t",aln.pos_st); // Reference start
-    printf("%d\t",aln.pos_end); // Reference end
-    printf("%d\t",(int)round(residue)); // Number of residues //todo check this
-    printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
-    printf("%d\t",aln.mapq); // Mapq
-    printf("tp:A:P\t");
-    printf("d1:f:%.2f\t",aln.score); // distance of the best match
-    printf("d2:f:%.2f\n",aln.score2); // distance of the second best matcj
+    fprintf(fp,"%d\t",aln.pos_st); // Reference start
+    fprintf(fp,"%d\t",aln.pos_end); // Reference end
+    fprintf(fp,"%d\t",(int)round(residue)); // Number of residues //todo check this
+    fprintf(fp,"%d\t",(int)round(block_len)); //  Alignment block length //todo check this
+    fprintf(fp,"%d\t",aln.mapq); // Mapq
+    fprintf(fp,"tp:A:P\t");
+    fprintf(fp,"d1:f:%.2f\t",aln.score); // distance of the best match
+    fprintf(fp,"d2:f:%.2f\n",aln.score2); // distance of the second best matcj
 }
 
 /* write the output for a processed data batch */
@@ -764,7 +764,7 @@ void output_db(core_t* core, db_t* db) {
         // printf("\n");
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
-            print_aln(db->qstart[i], db->qend[i], db->et[i], db->aln[i],  core->ref, db->slow5_rec[i]->read_id, db->slow5_rec[i]->len_raw_signal);
+            print_aln(stdout, db->qstart[i], db->qend[i], db->et[i], db->aln[i],  core->ref, db->slow5_rec[i]->read_id, db->slow5_rec[i]->len_raw_signal);
         }
 
     }
@@ -852,7 +852,7 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, int thread
     sigfish_state_t *state = (sigfish_state_t *)malloc(sizeof(sigfish_state_t));
     MALLOC_CHK(state);
     state->num_channels = num_channels;
-    state->threads = threads;
+    state->num_thread = threads;
     state->status = (enum sigfish_status*)calloc(num_channels,sizeof(enum sigfish_status));
     MALLOC_CHK(state->status);
     state->reads = (sigfish_rstate_t *)calloc(num_channels,sizeof(sigfish_rstate_t));
@@ -907,7 +907,7 @@ void free_sigfish(sigfish_state_t *state){
 
 }
 
-aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id){
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, FILE *fp){
     assert(ref != NULL);
     assert(raw != NULL);
     assert(nsample > 0);
@@ -965,7 +965,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
         free(aln);
 
         if(best_aln.pos_st > 0){
-            print_aln(start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
+            print_aln(fp, start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
         }
     }
     free(et.event);
@@ -1072,9 +1072,15 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                 int leftover = sig_store_i - st;
                 if(leftover >= QUERY_SIZE_SIG){
                     //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
-                    char read_id[100];
-                    sprintf(read_id, "read_%d_channel_%d", r->read_number, channel+1);
-                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id);
+                    char *read_id;
+                    char tmp[100];
+                    if(r->read_id){
+                        read_id = r->read_id;
+                    } else {
+                        sprintf(tmp, "read_%d_channel_%d", r->read_number, channel+1);
+                        read_id = tmp;
+                    }
+                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, stderr);
                     if(best_aln.score > SIGFISH_DTW_CUTOFF){
                         state->status[channel] = status[i] = SIGFISH_REJECT;
                     } else {
@@ -1095,45 +1101,54 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
 
 }
 
+void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, int i){
+
+    int channel = read_batch[i].channel-1;
+    ASSERT(channel>=0 && channel < state->num_channels);
+
+    //populate
+    sigfish_rstate_t *r = &state->reads[channel];
+    if (r->read_number == read_batch[i].read_number){ //same read number
+        if(r->c_raw_signal < r->len_raw_signal + read_batch[i].len_raw_signal){
+            r->c_raw_signal = r->len_raw_signal + read_batch[i].len_raw_signal;
+            r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
+            MALLOC_CHK(r->raw_signal);
+        }
+        memcpy(r->raw_signal+r->len_raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
+        r->len_raw_signal += read_batch[i].len_raw_signal;
+        fprintf(stderr,"same read %d len %ld\n",r->read_number,r->len_raw_signal);
+        if(r->read_id){
+            ASSERT(strcmp(r->read_id, read_batch[i].read_id));
+        }
+    } else { //new read number
+        r->len_raw_signal = read_batch[i].len_raw_signal;
+        r->read_number = read_batch[i].read_number;
+        state->status[channel] = state->status_ret [i] = 0;
+        r->read_id = read_batch[i].read_id;
+        if(r->c_raw_signal < read_batch[i].len_raw_signal){
+            r->c_raw_signal = read_batch[i].len_raw_signal;
+            r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
+            MALLOC_CHK(r->raw_signal);
+        }
+        memcpy(r->raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
+    }
+
+
+    //process
+    decide(r, state, channel, state->status_ret, i);
+}
+
+
 enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size){
 
     enum sigfish_status *status = (enum sigfish_status *)calloc(state->num_channels,sizeof(enum sigfish_status));
     MALLOC_CHK(status);
-
-    for(int i=0;i<batch_size;i++){
-
-        int channel = read_batch[i].channel-1;
-        ASSERT(channel>=0 && channel < state->num_channels);
-
-        //populate
-        sigfish_rstate_t *r = &state->reads[channel];
-        if (r->read_number == read_batch[i].read_number){ //same read number
-            if(r->c_raw_signal < r->len_raw_signal + read_batch[i].len_raw_signal){
-                r->c_raw_signal = r->len_raw_signal + read_batch[i].len_raw_signal;
-                r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
-                MALLOC_CHK(r->raw_signal);
-            }
-            memcpy(r->raw_signal+r->len_raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
-            r->len_raw_signal += read_batch[i].len_raw_signal;
-            fprintf(stderr,"same read %d len %ld\n",r->read_number,r->len_raw_signal);
-        } else { //new read number
-            r->len_raw_signal = read_batch[i].len_raw_signal;
-            r->read_number = read_batch[i].read_number;
-            state->status[channel] = status[i] = 0;
-            if(r->c_raw_signal < read_batch[i].len_raw_signal){
-                r->c_raw_signal = read_batch[i].len_raw_signal;
-                r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
-                MALLOC_CHK(r->raw_signal);
-            }
-            memcpy(r->raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
-        }
-
-
-        //process
-        decide(r, state, channel, status, i);
-
-
-    }
+    state->status_ret = status;
+    state->n_rec = batch_size;
+    // for(int i=0;i<batch_size;i++){
+    //     process_sigfish_single(state, read_batch, i);
+    // }
+    work_rt(state, read_batch,process_sigfish_single);
 
     return status;
 }
