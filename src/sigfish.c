@@ -881,6 +881,7 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, int thread
         uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
         uint32_t flag = 0;
         flag |= SIGFISH_RNA;
+        flag |= SIGFISH_REF;
         int32_t query_size = QUERY_SIZE_EVENTS;
         state->ref= gen_ref(ref_name, pore_model, kmer_size, flag, query_size);
         free(pore_model);
@@ -976,6 +977,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
 
 #define SIGFISH_CHUNK_SIZE 1200
 #define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
+#define SIGFISH_DTW_CUTOFF 70
 
 
 void test1(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
@@ -1073,6 +1075,11 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                     char read_id[100];
                     sprintf(read_id, "read_%d_channel_%d", r->read_number, channel);
                     aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id);
+                    if(best_aln.score > SIGFISH_DTW_CUTOFF){
+                        state->status[channel] = status[i] = SIGFISH_REJECT;
+                    } else {
+                        state->status[channel] = status[i] = SIGFISH_CONT;
+                    }
                 } else {
                     //fprintf(stderr,"leftover: %d, waiting for more\n", leftover);
                 }
