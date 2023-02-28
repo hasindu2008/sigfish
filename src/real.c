@@ -1,7 +1,7 @@
 /* @file main.c
 **
 ******************************************************************************/
-
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -240,7 +240,8 @@ int real_main2(int argc, char* argv[]){
             reads[i].channel = i+1;
             reads[i].read_number = round;
             reads[i].len_raw_signal = rec->len_raw_signal;
-            reads[i].read_id = NULL;
+            reads[i].read_id = strdup(rec->read_id);
+            assert(reads[i].read_id != NULL);
             reads[i].raw_signal = (float*)malloc(sizeof(float)*rec->len_raw_signal);
             for (int j=0; j<rec->len_raw_signal; j++){
                 reads[i].raw_signal[j] = TO_PICOAMPS(rec->raw_signal[j],rec->digitisation,rec->offset,rec->range);
@@ -249,13 +250,14 @@ int real_main2(int argc, char* argv[]){
         }
         fprintf(stderr,"round %d: %d reads loaded\n",round,i);
 
-        enum sigfish_status *status = process_sigfish(state, reads, channels);
+        enum sigfish_status *status = process_sigfish(state, reads, i);
         for(int j=0;j<i;j++){
-            printf("channel %d: %d\n",j+1,status[j]);
+            fprintf(stderr,"channel %d: %d\n",j+1,status[j]);
         }
         free(status);
         for(int j=0; j<i; j++){
             free(reads[j].raw_signal);
+            free(reads[j].read_id);
         }
         fprintf(stderr,"round %d: %d reads processed\n",round,i);
         round++;
@@ -272,7 +274,7 @@ int real_main2(int argc, char* argv[]){
 
 int real_main(int argc, char* argv[]){
 
-    real_main1(argc, argv);
+    real_main2(argc, argv);
 
     return 0;
 }

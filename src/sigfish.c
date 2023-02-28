@@ -880,9 +880,11 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
     for(int i=0;i<num_channels;i++){
         state->reads[i].c_raw_signal = 10000;
         state->reads[i].raw_signal = (float *)malloc(sizeof(float)*10000);
+        state->reads[i].read_number=-1;
         MALLOC_CHK(state->reads[i].raw_signal);
         state->s[i] = init_jnnv3_astate(param);
         state->t[i] = init_jnnv3_pstate(pparam);
+
     }
 
     state->ref = NULL;
@@ -930,6 +932,7 @@ void free_sigfish(sigfish_state_t *state){
     free(state->t);
     free(state->status);
     free(state->reads);
+    free_ref(state->ref);
 
     if(state->debug_paf){
         if(state->debug_paf!=stdout) fclose(state->debug_paf);
@@ -1165,7 +1168,7 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
         jnnv3_astate_t *s = state->s[channel];
         jnnv3_pstate_t *t = state->t[channel];
         const jnnv3_aparam_t param = JNNV3_ADAPTOR;
-        const jnnv3_pparam_t pparam = JNNV3_POLYA;
+            const jnnv3_pparam_t pparam = JNNV3_POLYA;
         reset_jnnv3_astate(s,param);
         reset_jnnv3_pstate(t,pparam);
         if(r->c_raw_signal < read_batch[i].len_raw_signal){
