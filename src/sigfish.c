@@ -1073,7 +1073,7 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                 if(leftover >= QUERY_SIZE_SIG){
                     //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
                     char read_id[100];
-                    sprintf(read_id, "read_%d_channel_%d", r->read_number, channel);
+                    sprintf(read_id, "read_%d_channel_%d", r->read_number, channel+1);
                     aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id);
                     if(best_aln.score > SIGFISH_DTW_CUTOFF){
                         state->status[channel] = status[i] = SIGFISH_REJECT;
