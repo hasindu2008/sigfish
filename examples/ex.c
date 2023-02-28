@@ -6,7 +6,10 @@
 
 int main(){
 
-    sigfish_state_t *state = init_sigfish(NULL, CHANNELS, 4);
+    sigfish_opt_t opt;
+    opt.num_thread = 1;
+    opt.debug_paf = NULL;
+    sigfish_state_t *state = init_sigfish(NULL, CHANNELS, opt);
     sigfish_read_t reads[CHANNELS];
 
     for(int r=0; r<ROUNDS; r++){

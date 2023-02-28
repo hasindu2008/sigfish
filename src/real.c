@@ -45,6 +45,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
     reset_jnnv3_pstate(t,pparam);
     aln_t best_aln = {0};
     best_aln.pos_st = -1;
+    char *paf = NULL;
 
     for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
 
@@ -100,7 +101,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             if(leftover >= QUERY_SIZE_SIG){
                 //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
                 if(ref){
-                    best_aln=map(ref, sig_store, sig_store_i, st, read_id, stdout);
+                    best_aln=map(ref, sig_store, sig_store_i, st, read_id, &paf);
                 }
                 break;
             } else {
@@ -126,6 +127,11 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             assert(polya.y + s->segs[0].y < sig_store_i);
             printf("%ld\t%ld\n",polya.x+s->segs[0].y-1, polya.y+s->segs[0].y-1);
         }
+    }else{
+        if(best_aln.pos_st > 0){
+            printf("%s",paf);
+            free(paf);
+        }
     }
 
 
@@ -139,7 +145,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
 
 
-int real_main(int argc, char* argv[]){
+int real_main1(int argc, char* argv[]){
 
     if(argc < 2){
         fprintf(stderr,"Usage: sigfish %s <file.blow5>\n", argv[0]);
@@ -197,6 +203,72 @@ int real_main(int argc, char* argv[]){
     if(ref != NULL){
         free_ref(ref);
     }
+
+    return 0;
+}
+
+// int real_main2(int argc, char* argv[]){
+
+//     if(argc < 3){
+//         fprintf(stderr,"Usage: sigfish %s <file.blow5> <ref.fa>\n", argv[0]);
+//         exit(EXIT_FAILURE);
+//     }
+
+//     slow5_file_t *sp = slow5_open(argv[1],"r");
+//     if(sp==NULL){
+//        fprintf(stderr,"Error in opening file\n");
+//        exit(EXIT_FAILURE);
+//     }
+
+//     int channels=512;
+
+//     sigfish_opt_t opt;
+//     opt.num_thread = 8;
+//     opt.debug_paf = "-";
+//     sigfish_state_t *state = init_sigfish(argv[1], channels, opt);
+//     sigfish_read_t reads[channels];
+
+//     while (1){
+//         int i = 0;
+//         while (i < db->channels && ret >= 0) {
+
+//             ret = slow5_get_next(&rec,sp))
+//         }
+
+
+//     }
+//         printf("round %d\n", r);
+//         for (int i=0; i<channels; i++){
+//             reads[i].channel = i+1;
+//             reads[i].read_number = 0;
+//             reads[i].len_raw_signal = CHUNK_SIZE;
+//             reads[i].raw_signal = (float*)malloc(sizeof(float)*CHUNK_SIZE);
+//             for (int j=0; j<CHUNK_SIZE; j++){
+//                 reads[i].raw_signal[j] = j+i+r;
+//             }
+
+//         }
+//         enum sigfish_status *status = process_sigfish(state, reads, CHANNELS);
+//         for(int i=0;i<CHANNELS;i++){
+//             printf("channel %d: %d\n", i+1, status[i]);
+//         }
+//         putc('\n', stdout);
+//         free(status);
+
+//         for(int i=0; i<CHANNELS; i++){
+//             free(reads[i].raw_signal);
+//         }
+
+
+
+//     free_sigfish(state);
+
+
+// }
+
+int real_main(int argc, char* argv[]){
+
+    real_main1(argc, argv);
 
     return 0;
 }

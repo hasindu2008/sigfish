@@ -15,6 +15,7 @@
 #include "stat.h"
 #include "jnn.h"
 #include "rjnn.h"
+#include "str.h"
 
 #include "slow5/slow5.h"
 #include "../slow5lib/src/slow5_extra.h"
@@ -710,7 +711,7 @@ void process_db(core_t* core,db_t* db){
     core->process_db_time += (proc_end-proc_start);
 }
 
-void print_aln(FILE *fp, int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
+char *sprintf_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
     // Output of results
     //uint64_t start_event_idx =  db->qstart[i];
     //uint64_t end_event_idx =  db->qend[i];
@@ -728,21 +729,28 @@ void print_aln(FILE *fp, int64_t start_event_idx, int64_t end_event_idx, event_t
     //     continue;
     // }
 
-    fprintf(fp,"%s\t",read_id); // read id name
-    fprintf(fp,"%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
-    fprintf(fp,"%c\t",aln.d); // Direction
-    fprintf(fp,"%s\t",ref->ref_names[aln.rid]); // reference sequence name
-    fprintf(fp,"%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, sizeof(char)*10000);
 
 
-    fprintf(fp,"%d\t",aln.pos_st); // Reference start
-    fprintf(fp,"%d\t",aln.pos_end); // Reference end
-    fprintf(fp,"%d\t",(int)round(residue)); // Number of residues //todo check this
-    fprintf(fp,"%d\t",(int)round(block_len)); //  Alignment block length //todo check this
-    fprintf(fp,"%d\t",aln.mapq); // Mapq
-    fprintf(fp,"tp:A:P\t");
-    fprintf(fp,"d1:f:%.2f\t",aln.score); // distance of the best match
-    fprintf(fp,"d2:f:%.2f\n",aln.score2); // distance of the second best matcj
+    sprintf_append(sp,"%s\t",read_id); // read id name
+    sprintf_append(sp,"%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+    sprintf_append(sp,"%c\t",aln.d); // Direction
+    sprintf_append(sp,"%s\t",ref->ref_names[aln.rid]); // reference sequence name
+    sprintf_append(sp,"%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
+
+
+    sprintf_append(sp,"%d\t",aln.pos_st); // Reference start
+    sprintf_append(sp,"%d\t",aln.pos_end); // Reference end
+    sprintf_append(sp,"%d\t",(int)round(residue)); // Number of residues //todo check this
+    sprintf_append(sp,"%d\t",(int)round(block_len)); //  Alignment block length //todo check this
+    sprintf_append(sp,"%d\t",aln.mapq); // Mapq
+    sprintf_append(sp,"tp:A:P\t");
+    sprintf_append(sp,"d1:f:%.2f\t",aln.score); // distance of the best match
+    sprintf_append(sp,"d2:f:%.2f\n",aln.score2); // distance of the second best matcj
+
+    return sp->s;
 }
 
 /* write the output for a processed data batch */
@@ -764,7 +772,9 @@ void output_db(core_t* core, db_t* db) {
         // printf("\n");
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
-            print_aln(stdout, db->qstart[i], db->qend[i], db->et[i], db->aln[i],  core->ref, db->slow5_rec[i]->read_id, db->slow5_rec[i]->len_raw_signal);
+            char *aln_str = sprintf_aln(db->qstart[i], db->qend[i], db->et[i], db->aln[i],  core->ref, db->slow5_rec[i]->read_id, db->slow5_rec[i]->len_raw_signal);
+            printf("%s",aln_str);
+            free(aln_str);
         }
 
     }
@@ -848,11 +858,13 @@ void set_log_level(enum sigfish_log_level_opt level){
 
 //realtime stuff
 
-sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, int threads){
+sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_opt_t opt){
     sigfish_state_t *state = (sigfish_state_t *)malloc(sizeof(sigfish_state_t));
     MALLOC_CHK(state);
     state->num_channels = num_channels;
-    state->num_thread = threads;
+    ASSERT(opt.num_thread>0 && opt.num_thread<1000);
+    state->num_thread = opt.num_thread;
+
     state->status = (enum sigfish_status*)calloc(num_channels,sizeof(enum sigfish_status));
     MALLOC_CHK(state->status);
     state->reads = (sigfish_rstate_t *)calloc(num_channels,sizeof(sigfish_rstate_t));
@@ -881,14 +893,29 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, int thread
         uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
         uint32_t flag = 0;
         flag |= SIGFISH_RNA;
-        flag |= SIGFISH_REF;
+        if(opt.no_full_ref == 0) {
+            flag |= SIGFISH_REF;
+        }
         int32_t query_size = QUERY_SIZE_EVENTS;
         state->ref= gen_ref(ref_name, pore_model, kmer_size, flag, query_size);
         free(pore_model);
 
     }
 
+    state->debug_paf = NULL;
+    state->debug = NULL;
+    if(opt.debug_paf){
+        if ( strcmp(opt.debug_paf,"-") == 0 ){
+            state->debug_paf = stdout;
+        } else {
+            state->debug_paf = fopen(opt.debug_paf,"w");
+            F_CHK(state->debug_paf,opt.debug_paf);
+        }
 
+
+        state->debug = (char **)malloc(sizeof(char *)*num_channels);
+        MALLOC_CHK(state->debug);
+    }
 
     return state;
 }
@@ -903,11 +930,17 @@ void free_sigfish(sigfish_state_t *state){
     free(state->t);
     free(state->status);
     free(state->reads);
+
+    if(state->debug_paf){
+        if(state->debug_paf!=stdout) fclose(state->debug_paf);
+        free(state->debug);
+    }
+
     free(state);
 
 }
 
-aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, FILE *fp){
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp){
     assert(ref != NULL);
     assert(raw != NULL);
     assert(nsample > 0);
@@ -964,8 +997,8 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
         update_best_aln(&best_aln, aln, ref);
         free(aln);
 
-        if(best_aln.pos_st > 0){
-            print_aln(fp, start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
+        if(best_aln.pos_st > 0 && sp!=NULL){
+            *sp=sprintf_aln(start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
         }
     }
     free(et.event);
@@ -1080,7 +1113,8 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                         sprintf(tmp, "read_%d_channel_%d", r->read_number, channel+1);
                         read_id = tmp;
                     }
-                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, stderr);
+                    char *sp = state->debug ? state->debug[channel] : NULL;
+                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, &sp);
                     if(best_aln.score > SIGFISH_DTW_CUTOFF){
                         state->status[channel] = status[i] = SIGFISH_REJECT;
                     } else {
@@ -1118,7 +1152,7 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
         r->len_raw_signal += read_batch[i].len_raw_signal;
         fprintf(stderr,"same read %d len %ld\n",r->read_number,r->len_raw_signal);
         if(r->read_id){
-            ASSERT(strcmp(r->read_id, read_batch[i].read_id));
+            ASSERT(strcmp(r->read_id, read_batch[i].read_id)==0);
         }
     } else { //new read number
         r->len_raw_signal = read_batch[i].len_raw_signal;
@@ -1149,6 +1183,15 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
     //     process_sigfish_single(state, read_batch, i);
     // }
     work_rt(state, read_batch,process_sigfish_single);
+
+    if(state->debug){
+        for(int i=0;i<state->num_channels;i++){
+            if(state->debug[i]){
+                fprintf(state->debug_paf,"%s",state->debug[i]);
+                free(state->debug[i]);
+            }
+        }
+    }
 
     return status;
 }

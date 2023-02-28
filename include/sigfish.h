@@ -256,6 +256,11 @@ enum sigfish_status{
     SIGFISH_CONT =2     //continue with the read
 };
 
+typedef struct{
+    int num_thread;
+    const char *debug_paf;
+    int8_t no_full_ref;
+} sigfish_opt_t;
 
 typedef struct{
     int32_t read_number;
@@ -280,6 +285,8 @@ typedef struct{
     uint32_t num_channels;
     int num_thread;
     const char *refname;
+    FILE *debug_paf;
+    char **debug;
     enum sigfish_status *status;
     enum sigfish_status *status_ret;
     sigfish_rstate_t *reads;
@@ -346,10 +353,10 @@ void free_core(core_t* core,opt_t opt);
 #define QUERY_SIZE_EVENTS 250
 #define QUERY_SIZE_SIG 6000
 
-sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads);
+sigfish_state_t *init_sigfish(const char *ref, int num_channels, sigfish_opt_t opt);
 void free_sigfish(sigfish_state_t *state);
 enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size);
-aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, FILE *fp);
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp);
 void work_rt(sigfish_state_t* state, sigfish_read_t * db, void (*func)(sigfish_state_t*,sigfish_read_t*,int));
 
 #endif
