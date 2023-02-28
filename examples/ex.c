@@ -6,7 +6,7 @@
 
 int main(){
 
-    sigfish_state_t *state = init_sigfish("ref", CHANNELS, 1);
+    sigfish_state_t *state = init_sigfish(NULL, CHANNELS, 1);
     sigfish_read_t reads[CHANNELS];
 
     for(int r=0; r<ROUNDS; r++){

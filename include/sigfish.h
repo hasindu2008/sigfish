@@ -268,18 +268,19 @@ typedef struct{
     uint64_t c_raw_signal;
 } sigfish_rstate_t;
 
+typedef struct jnnv3_astate_s jnnv3_astate_t;
+typedef struct jnnv3_pstate_s jnnv3_pstate_t;
 
 typedef struct{
     uint32_t num_channels;
     int threads;
-    const char *ref;
+    const char *refname;
     enum sigfish_status *status;
     sigfish_rstate_t *reads;
+    refsynth_t *ref;
+    jnnv3_astate_t **s;
+    jnnv3_pstate_t **t;
 } sigfish_state_t;
-
-sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads);
-void free_sigfish(sigfish_state_t *state);
-enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size);
 
 /******************************************
  * function prototype for major functions *
@@ -318,5 +319,15 @@ void free_db(db_t* db);
 
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);
+
+
+/*******************************REALTIME STUF**************************/
+#define QUERY_SIZE_EVENTS 250
+#define QUERY_SIZE_SIG 6000
+
+sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads);
+void free_sigfish(sigfish_state_t *state);
+enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size);
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id);
 
 #endif

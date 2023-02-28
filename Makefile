@@ -25,6 +25,7 @@ OBJ = $(BUILD_DIR)/dtw_main.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/eval.o \
 	  $(BUILD_DIR)/real.o \
+	  $(BUILD_DIR)/rjnn.o
 
 PREFIX = /usr/local
 VERSION = `git describe --tags`
@@ -82,6 +83,9 @@ $(BUILD_DIR)/eval.o: src/eval.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/real.o: src/real.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/rjnn.o: src/rjnn.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 slow5lib/lib/libslow5.a:

@@ -14,6 +14,7 @@
 #include "cdtw.h"
 #include "stat.h"
 #include "jnn.h"
+#include "rjnn.h"
 
 #include "slow5/slow5.h"
 #include "../slow5lib/src/slow5_extra.h"
@@ -847,7 +848,7 @@ void set_log_level(enum sigfish_log_level_opt level){
 
 //realtime stuff
 
-sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads){
+sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, int threads){
     sigfish_state_t *state = (sigfish_state_t *)malloc(sizeof(sigfish_state_t));
     MALLOC_CHK(state);
     state->num_channels = num_channels;
@@ -856,23 +857,122 @@ sigfish_state_t *init_sigfish(const char *ref, int num_channels, int threads){
     MALLOC_CHK(state->status);
     state->reads = (sigfish_rstate_t *)calloc(num_channels,sizeof(sigfish_rstate_t));
     MALLOC_CHK(state->reads);
+    state->s = (jnnv3_astate_t **)calloc(num_channels,sizeof(jnnv3_astate_t *));
+    MALLOC_CHK(state->s);
+    state->t = (jnnv3_pstate_t **)calloc(num_channels,sizeof(jnnv3_pstate_t *));
+    MALLOC_CHK(state->t);
+
+    const jnnv3_aparam_t param = JNNV3_ADAPTOR;
+    const jnnv3_pparam_t pparam = JNNV3_POLYA;
 
     for(int i=0;i<num_channels;i++){
         state->reads[i].c_raw_signal = 10000;
         state->reads[i].raw_signal = (float *)malloc(sizeof(float)*10000);
         MALLOC_CHK(state->reads[i].raw_signal);
+        state->s[i] = init_jnnv3_astate(param);
+        state->t[i] = init_jnnv3_pstate(pparam);
     }
+
+    state->ref = NULL;
+    if(ref_name){
+
+        model_t *pore_model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
+        MALLOC_CHK(pore_model);
+        uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
+        uint32_t flag = 0;
+        flag |= SIGFISH_RNA;
+        int32_t query_size = QUERY_SIZE_EVENTS;
+        state->ref= gen_ref(ref_name, pore_model, kmer_size, flag, query_size);
+        free(pore_model);
+
+    }
+
+
+
     return state;
 }
 
 void free_sigfish(sigfish_state_t *state){
     for(int i=0;i<state->num_channels;i++){
         free(state->reads[i].raw_signal);
+        free_jnnv3_astate(state->s[i]);
+        free_jnnv3_pstate(state->t[i]);
     }
+    free(state->s);
+    free(state->t);
     free(state->status);
     free(state->reads);
     free(state);
+
 }
+
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id){
+    assert(ref != NULL);
+    assert(raw != NULL);
+    assert(nsample > 0);
+    assert(nsample-polyend >= QUERY_SIZE_SIG);
+    int8_t rna = 1;
+
+    aln_t best_aln = {0};
+    best_aln.pos_st = -1;
+
+    event_table et = getevents(nsample, raw, rna);
+    if(et.n > 0){
+        int64_t start_idx = -1;
+        int64_t end_idx = -1;
+        int i = 0;
+        while(i < et.n && et.event[i].start < (uint64_t)polyend) i++;
+        start_idx = i;
+        assert((uint64_t)start_idx < et.n);
+        end_idx = start_idx + QUERY_SIZE_EVENTS;
+
+        if (start_idx + 25 > et.n ){
+            fprintf(stderr,"WARNING: not enough events to map - a weird read (<25 events in %ld samples)\n",nsample-polyend);
+            start_idx = 0;end_idx = 0;
+        } else if(end_idx > et.n){
+            fprintf(stderr,"WARNING: Only %ld events in %ld samples\n",et.n-start_idx,nsample-polyend);
+            end_idx = et.n;
+        }
+        normalise_events(et.event,start_idx,end_idx);
+
+        aln_t *aln=init_aln();
+        int32_t qlen = end_idx - start_idx;
+
+        float *query = (float *)malloc(sizeof(float)*qlen);
+        MALLOC_CHK(query);
+
+        for(int j=0;j<qlen;j++){
+            query[qlen-1-j] = et.event[j+start_idx].mean;
+        }
+
+        for(int j=0;j<ref->num_ref;j++){
+            int32_t rlen =ref->ref_lengths[j];
+            float *cost = (float *)malloc(sizeof(float) * qlen * rlen);
+            MALLOC_CHK(cost);
+            subsequence(query, ref->forward[j], qlen , rlen, cost);
+            for(int k=(qlen-1)*rlen; k< qlen*rlen; k+=qlen){
+                float min_score = INFINITY;
+                int32_t min_pos = -1;
+                update_min(&min_pos, &min_score, cost, qlen, rlen, k);
+                update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen);
+            }
+            free(cost);
+        }
+
+        free(query);
+        update_best_aln(&best_aln, aln, ref);
+        free(aln);
+
+        if(best_aln.pos_st > 0){
+            print_aln(start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
+        }
+    }
+    free(et.event);
+
+    return best_aln;
+}
+
+
 
 #define SIGFISH_CHUNK_SIZE 1200
 #define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
@@ -891,6 +991,7 @@ void test1(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
         } else {
             state->status[channel] = status[i] = SIGFISH_CONT;
         }
+        fprintf(stderr,"channel: %d, read %d, sum: %f, status: %d\n",channel,r->read_number,sum,status[i]);
     }
 }
 
@@ -923,7 +1024,63 @@ void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
 int debug = 1;
 
 void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
-    if(debug==1){
+
+    if (debug == 0){
+
+        state->status[channel] = status[i] = SIGFISH_MORE;
+        //if too short to start detecting adaptor
+        if (r->len_raw_signal >= SIGFISH_MIN_SAMPLES){
+
+            float *sig_store = r->raw_signal;
+            int sig_store_i = r->len_raw_signal;
+            float *chunk = sig_store;
+            int current_chunk_size = sig_store_i;
+
+            jnnv3_astate_t *s = state->s[channel];
+            jnnv3_pstate_t *t = state->t[channel];
+
+            const jnnv3_aparam_t param = JNNV3_ADAPTOR;
+            const jnnv3_pparam_t pparam = JNNV3_POLYA;
+
+            if (s->top == 0){ //enough chunks arrived
+                jnnv3_acalc_param(s, param, sig_store, sig_store_i);
+            }
+
+            if (!s->adapter_found){
+                jnnv3_acore(s, param, chunk, current_chunk_size);
+                if (s->adapter_found){
+                    jnn_pair_t p = s->segs[0];
+                    jnnv3_pcalc_param(t,p,sig_store,sig_store_i);
+                    chunk = &sig_store[p.y];
+                    current_chunk_size = sig_store_i-p.y;
+                }
+            }
+
+            if(s->adapter_found && !t->polya_found){
+                jnnv3_pcore(t, pparam,chunk,current_chunk_size);
+            }
+
+            if(t->polya_found){
+                assert(s->adapter_found == 1);
+                assert(t->seg_i > 0);
+                assert(s->seg_i > 0);
+                jnn_pair_t polya = t->segs[0];
+                jnn_pair_t adapt = s->segs[0];
+                int st = polya.y+adapt.y-1;
+                int leftover = sig_store_i - st;
+                if(leftover >= QUERY_SIZE_SIG){
+                    //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
+                    char read_id[100];
+                    sprintf(read_id, "read_%d_channel_%d", r->read_number, channel);
+                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id);
+                } else {
+                    //fprintf(stderr,"leftover: %d, waiting for more\n", leftover);
+                }
+            }
+        }
+
+    }
+    else if(debug==1){
         test1(r,state,channel,status,i);
     } else if (debug==2){
         test2(r,state,channel,status,i);
@@ -949,7 +1106,7 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
             }
             memcpy(r->raw_signal+r->len_raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
             r->len_raw_signal += read_batch[i].len_raw_signal;
-            fprintf(stderr,"read %d len %ld\n",r->read_number,r->len_raw_signal);
+            fprintf(stderr,"same read %d len %ld\n",r->read_number,r->len_raw_signal);
         } else { //new read number
             r->len_raw_signal = read_batch[i].len_raw_signal;
             state->status[channel] = status[i] = 0;
@@ -963,7 +1120,7 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
 
 
         //process
-        test2(r, state, channel, status, i);
+        test1(r, state, channel, status, i);
 
 
     }
