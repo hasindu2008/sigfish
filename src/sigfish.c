@@ -1095,7 +1095,9 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
 
     for(int i=0;i<batch_size;i++){
 
-        int channel = read_batch[i].channel;
+        int channel = read_batch[i].channel-1;
+        ASSERT(channel>=0 && channel < state->num_channels);
+
         //populate
         sigfish_rstate_t *r = &state->reads[channel];
         if (r->read_number == read_batch[i].read_number){ //same read number

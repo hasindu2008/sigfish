@@ -1,6 +1,6 @@
 #include <sigfish.h>
 
-#define CHANNELS 10
+#define CHANNELS 512
 #define CHUNK_SIZE 1200
 #define ROUNDS 10
 
@@ -12,7 +12,7 @@ int main(){
     for(int r=0; r<ROUNDS; r++){
         printf("round %d\n", r);
         for (int i=0; i<CHANNELS; i++){
-            reads[i].channel = i;
+            reads[i].channel = i+1;
             reads[i].read_number = 0;
             reads[i].len_raw_signal = CHUNK_SIZE;
             reads[i].raw_signal = (float*)malloc(sizeof(float)*CHUNK_SIZE);
@@ -23,12 +23,12 @@ int main(){
         }
         enum sigfish_status *status = process_sigfish(state, reads, CHANNELS);
         for(int i=0;i<CHANNELS;i++){
-            printf("channel %d: %d\n", i, status[i]);
+            printf("channel %d: %d\n", i+1, status[i]);
         }
         putc('\n', stdout);
         free(status);
 
-        for(int i=0; i<10; i++){
+        for(int i=0; i<CHANNELS; i++){
             free(reads[i].raw_signal);
         }
 
