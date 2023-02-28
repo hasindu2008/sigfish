@@ -884,7 +884,7 @@ void test1(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
     } else {
         float sum = 0;
         for(int j=0;j<30;j++) sum += r->raw_signal[j];
-        sum /= SIGFISH_CHUNK_SIZE;
+        sum /= 30;
 
         if((int)sum % 2 == 0){
             state->status[channel] = status[i] = SIGFISH_REJECT;
