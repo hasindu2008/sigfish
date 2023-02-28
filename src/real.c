@@ -1,7 +1,6 @@
 /* @file main.c
 **
 ******************************************************************************/
-#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -240,7 +239,8 @@ int real_main2(int argc, char* argv[]){
             reads[i].channel = i+1;
             reads[i].read_number = round;
             reads[i].len_raw_signal = rec->len_raw_signal;
-            reads[i].read_id = strdup(rec->read_id);
+            reads[i].read_id = (char *)malloc(strlen(rec->read_id)+1);
+            strcpy(reads[i].read_id,rec->read_id);
             assert(reads[i].read_id != NULL);
             reads[i].raw_signal = (float*)malloc(sizeof(float)*rec->len_raw_signal);
             for (int j=0; j<rec->len_raw_signal; j++){
