@@ -999,6 +999,8 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
 
         if(best_aln.pos_st > 0 && sp!=NULL){
             *sp=sprintf_aln(start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
+        } else {
+            *sp=NULL;
         }
     }
     free(et.event);
@@ -1113,8 +1115,9 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                         sprintf(tmp, "read_%d_channel_%d", r->read_number, channel+1);
                         read_id = tmp;
                     }
-                    char *sp = state->debug ? state->debug[channel] : NULL;
-                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, &sp);
+                    char **sp = state->debug ? &(state->debug[i]) : NULL;
+                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, sp);
+                    if(state->debug[i])fprintf(stderr,"%s",state->debug[i]);
                     if(best_aln.score > SIGFISH_DTW_CUTOFF){
                         state->status[channel] = status[i] = SIGFISH_REJECT;
                     } else {
@@ -1157,8 +1160,14 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
     } else { //new read number
         r->len_raw_signal = read_batch[i].len_raw_signal;
         r->read_number = read_batch[i].read_number;
-        state->status[channel] = state->status_ret [i] = 0;
+        state->status[channel] = state->status_ret[i] = 0;
         r->read_id = read_batch[i].read_id;
+        jnnv3_astate_t *s = state->s[channel];
+        jnnv3_pstate_t *t = state->t[channel];
+        const jnnv3_aparam_t param = JNNV3_ADAPTOR;
+        const jnnv3_pparam_t pparam = JNNV3_POLYA;
+        reset_jnnv3_astate(s,param);
+        reset_jnnv3_pstate(t,pparam);
         if(r->c_raw_signal < read_batch[i].len_raw_signal){
             r->c_raw_signal = read_batch[i].len_raw_signal;
             r->raw_signal = (float *)realloc(r->raw_signal, r->c_raw_signal*sizeof(float));
@@ -1185,8 +1194,9 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
     work_rt(state, read_batch,process_sigfish_single);
 
     if(state->debug){
-        for(int i=0;i<state->num_channels;i++){
-            if(state->debug[i]){
+
+        for(int i=0;i<batch_size;i++){
+            if(state->status_ret[i]!=SIGFISH_MORE && state->debug[i]){
                 fprintf(state->debug_paf,"%s",state->debug[i]);
                 free(state->debug[i]);
             }

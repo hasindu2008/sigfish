@@ -9,6 +9,7 @@ int main(){
     sigfish_opt_t opt;
     opt.num_thread = 1;
     opt.debug_paf = NULL;
+    opt.no_full_ref = 0;
     sigfish_state_t *state = init_sigfish(NULL, CHANNELS, opt);
     sigfish_read_t reads[CHANNELS];
 
@@ -19,6 +20,7 @@ int main(){
             reads[i].read_number = 0;
             reads[i].len_raw_signal = CHUNK_SIZE;
             reads[i].raw_signal = (float*)malloc(sizeof(float)*CHUNK_SIZE);
+            reads[i].read_id = NULL;
             for (int j=0; j<CHUNK_SIZE; j++){
                 reads[i].raw_signal[j] = j+i+r;
             }

@@ -207,64 +207,68 @@ int real_main1(int argc, char* argv[]){
     return 0;
 }
 
-// int real_main2(int argc, char* argv[]){
+#define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
-//     if(argc < 3){
-//         fprintf(stderr,"Usage: sigfish %s <file.blow5> <ref.fa>\n", argv[0]);
-//         exit(EXIT_FAILURE);
-//     }
+int real_main2(int argc, char* argv[]){
 
-//     slow5_file_t *sp = slow5_open(argv[1],"r");
-//     if(sp==NULL){
-//        fprintf(stderr,"Error in opening file\n");
-//        exit(EXIT_FAILURE);
-//     }
+    if(argc < 3){
+        fprintf(stderr,"Usage: sigfish %s <file.blow5> <ref.fa>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
 
-//     int channels=512;
+    slow5_file_t *sp = slow5_open(argv[1],"r");
+    if(sp==NULL){
+       fprintf(stderr,"Error in opening file\n");
+       exit(EXIT_FAILURE);
+    }
+    slow5_rec_t *rec = NULL;
+    int ret=0;
 
-//     sigfish_opt_t opt;
-//     opt.num_thread = 8;
-//     opt.debug_paf = "-";
-//     sigfish_state_t *state = init_sigfish(argv[1], channels, opt);
-//     sigfish_read_t reads[channels];
+    int channels=512;
 
-//     while (1){
-//         int i = 0;
-//         while (i < db->channels && ret >= 0) {
+    sigfish_opt_t opt;
+    opt.num_thread = 8;
+    opt.debug_paf = "-";
+    opt.no_full_ref = 1;
+    sigfish_state_t *state = init_sigfish(argv[2], channels, opt);
+    sigfish_read_t reads[channels];
 
-//             ret = slow5_get_next(&rec,sp))
-//         }
+    int round=0;
+    while (ret==0){
+        int i = 0;
+        while (i < channels && (ret = slow5_get_next(&rec,sp))>= 0) {
+            reads[i].channel = i+1;
+            reads[i].read_number = round;
+            reads[i].len_raw_signal = rec->len_raw_signal;
+            reads[i].read_id = NULL;
+            reads[i].raw_signal = (float*)malloc(sizeof(float)*rec->len_raw_signal);
+            for (int j=0; j<rec->len_raw_signal; j++){
+                reads[i].raw_signal[j] = TO_PICOAMPS(rec->raw_signal[j],rec->digitisation,rec->offset,rec->range);
+            }
+            i++;
+        }
+        fprintf(stderr,"round %d: %d reads loaded\n",round,i);
 
+        enum sigfish_status *status = process_sigfish(state, reads, channels);
+        for(int j=0;j<i;j++){
+            printf("channel %d: %d\n",j+1,status[j]);
+        }
+        free(status);
+        for(int j=0; j<i; j++){
+            free(reads[j].raw_signal);
+        }
+        fprintf(stderr,"round %d: %d reads processed\n",round,i);
+        round++;
 
-//     }
-//         printf("round %d\n", r);
-//         for (int i=0; i<channels; i++){
-//             reads[i].channel = i+1;
-//             reads[i].read_number = 0;
-//             reads[i].len_raw_signal = CHUNK_SIZE;
-//             reads[i].raw_signal = (float*)malloc(sizeof(float)*CHUNK_SIZE);
-//             for (int j=0; j<CHUNK_SIZE; j++){
-//                 reads[i].raw_signal[j] = j+i+r;
-//             }
+    }
 
-//         }
-//         enum sigfish_status *status = process_sigfish(state, reads, CHANNELS);
-//         for(int i=0;i<CHANNELS;i++){
-//             printf("channel %d: %d\n", i+1, status[i]);
-//         }
-//         putc('\n', stdout);
-//         free(status);
+    free_sigfish(state);
+    slow5_rec_free(rec);
+    slow5_close(sp);
 
-//         for(int i=0; i<CHANNELS; i++){
-//             free(reads[i].raw_signal);
-//         }
+    return 0;
 
-
-
-//     free_sigfish(state);
-
-
-// }
+}
 
 int real_main(int argc, char* argv[]){
 
