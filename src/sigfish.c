@@ -877,6 +877,60 @@ void free_sigfish(sigfish_state_t *state){
 #define SIGFISH_CHUNK_SIZE 1200
 #define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
 
+
+void test1(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
+    if (r->len_raw_signal < 30){
+        state->status[channel] = status[i] = SIGFISH_MORE;
+    } else {
+        float sum = 0;
+        for(int j=0;j<30;j++) sum += r->raw_signal[j];
+        sum /= SIGFISH_CHUNK_SIZE;
+
+        if((int)sum % 2 == 0){
+            state->status[channel] = status[i] = SIGFISH_REJECT;
+        } else {
+            state->status[channel] = status[i] = SIGFISH_CONT;
+        }
+    }
+}
+
+void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
+    //if too short to start detecting adaptor
+    if (r->len_raw_signal < SIGFISH_MIN_SAMPLES){
+        state->status[channel] = status[i] = SIGFISH_MORE;
+    } else {
+
+        //detect adaptor
+        float sum = 0;
+        for(int j=SIGFISH_CHUNK_SIZE*6;j<SIGFISH_CHUNK_SIZE*7;j++){
+            sum += r->raw_signal[j];
+        }
+        sum /= SIGFISH_CHUNK_SIZE;
+
+        if((int)sum % 2 == 0){
+            state->status[channel] = status[i] = SIGFISH_REJECT;
+        } else {
+            state->status[channel] = status[i] = SIGFISH_CONT;
+        }
+
+        //detect polya
+
+        //dtw
+
+    }
+}
+
+int debug = 1;
+
+void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
+    if(debug==1){
+        test1(r,state,channel,status,i);
+    } else if (debug==2){
+        test2(r,state,channel,status,i);
+    }
+
+}
+
 enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size){
 
     enum sigfish_status *status = (enum sigfish_status *)calloc(state->num_channels,sizeof(enum sigfish_status));
@@ -909,30 +963,8 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
 
 
         //process
+        test2(r, state, channel, status, i);
 
-        //if too short to start detecting adaptor
-        if (r->len_raw_signal < SIGFISH_MIN_SAMPLES){
-            state->status[channel] = status[i] = SIGFISH_MORE;
-        } else {
-
-            //detect adaptor
-            float sum = 0;
-            for(int j=SIGFISH_CHUNK_SIZE*6;j<SIGFISH_CHUNK_SIZE*7;j++){
-                sum += r->raw_signal[j];
-            }
-            sum /= SIGFISH_CHUNK_SIZE;
-
-            if((int)sum % 2 == 0){
-                state->status[channel] = status[i] = SIGFISH_REJECT;
-            } else {
-                state->status[channel] = status[i] = SIGFISH_CONT;
-            }
-
-            //detect polya
-
-            //dtw
-
-        }
 
     }
 
