@@ -1021,7 +1021,7 @@ void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
     }
 }
 
-int debug = 1;
+int debug = 0;
 
 void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
 
