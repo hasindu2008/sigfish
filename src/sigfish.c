@@ -1118,6 +1118,7 @@ enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *rea
             fprintf(stderr,"same read %d len %ld\n",r->read_number,r->len_raw_signal);
         } else { //new read number
             r->len_raw_signal = read_batch[i].len_raw_signal;
+            r->read_number = read_batch[i].read_number;
             state->status[channel] = status[i] = 0;
             if(r->c_raw_signal < read_batch[i].len_raw_signal){
                 r->c_raw_signal = read_batch[i].len_raw_signal;
