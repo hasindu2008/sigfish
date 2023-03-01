@@ -217,7 +217,7 @@ int real_main1(const char *slow5file, const char *fasta_file){
 
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
-int real_main2(const char *slow5file, const char *fasta_file, int8_t full_ref){
+int real_main2(const char *slow5file, const char *fasta_file, int num_thread, int8_t full_ref){
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -230,7 +230,7 @@ int real_main2(const char *slow5file, const char *fasta_file, int8_t full_ref){
     int channels=512;
 
     sigfish_opt_t opt;
-    opt.num_thread = 8;
+    opt.num_thread = num_thread;
     opt.debug_paf = "-";
     opt.no_full_ref = !full_ref;
     sigfish_state_t *state = init_sigfish(fasta_file, channels, opt);
@@ -337,7 +337,7 @@ int real_main(int argc, char* argv[]){
     } else if (argc - optind == 2){
         slow5file = argv[optind +1];
         fasta_file = argv[optind];
-        real_main2(slow5file, fasta_file, full_ref);
+        real_main2(slow5file, fasta_file, num_thread, full_ref);
     } else {
         ERROR("%s","Too many arguments");
         exit(EXIT_FAILURE);
