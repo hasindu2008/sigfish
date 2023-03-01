@@ -5,11 +5,26 @@
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
+#include <getopt.h>
 #include <slow5/slow5.h>
 #include "sigfish.h"
 #include "rjnn.h"
 #include "error.h"
 #include "misc.h"
+
+
+static struct option long_options[] = {
+    {"threads", required_argument, 0, 't'},        //0 number of threads [8]
+    {"batchsize", required_argument, 0, 'K'},      //1 batchsize - number of reads loaded at once [512]
+    {"verbose", required_argument, 0, 'v'},        //2 verbosity level [1]
+    {"help", no_argument, 0, 'h'},                 //3
+    {"version", no_argument, 0, 'V'},              //4
+    {"output",required_argument, 0, 'o'},          //5 output to a file [stdout]
+    {"prefix",required_argument,0,'b'},            //6
+    {"query-size",required_argument,0,'q'},        //7
+    {"full-ref", no_argument, 0, 0},               //8 Map to full reference instead of a segment
+    {0, 0, 0, 0}};
+
 
 
 float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_chunks){
@@ -144,15 +159,9 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
 
 
-int real_main1(int argc, char* argv[]){
+int real_main1(const char *slow5file, const char *fasta_file){
 
-    if(argc < 2){
-        fprintf(stderr,"Usage: sigfish %s <file.blow5>\n", argv[0]);
-        fprintf(stderr,"Usage: sigfish %s <file.blow5> <ref.fa>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    slow5_file_t *sp = slow5_open(argv[1],"r");
+    slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
        fprintf(stderr,"Error in opening file\n");
        exit(EXIT_FAILURE);
@@ -161,8 +170,8 @@ int real_main1(int argc, char* argv[]){
     int ret=0;
 
     refsynth_t *ref = NULL;
-    if(argc == 3){
-        const char *ref_name = argv[2];
+    if(fasta_file){
+        const char *ref_name = fasta_file;
         assert(ref_name != NULL);
         model_t *pore_model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
         MALLOC_CHK(pore_model);
@@ -208,14 +217,9 @@ int real_main1(int argc, char* argv[]){
 
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
-int real_main2(int argc, char* argv[]){
+int real_main2(const char *slow5file, const char *fasta_file, int8_t full_ref){
 
-    if(argc < 3){
-        fprintf(stderr,"Usage: sigfish %s <file.blow5> <ref.fa>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    slow5_file_t *sp = slow5_open(argv[1],"r");
+    slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
        fprintf(stderr,"Error in opening file\n");
        exit(EXIT_FAILURE);
@@ -228,8 +232,8 @@ int real_main2(int argc, char* argv[]){
     sigfish_opt_t opt;
     opt.num_thread = 8;
     opt.debug_paf = "-";
-    opt.no_full_ref = 1;
-    sigfish_state_t *state = init_sigfish(argv[2], channels, opt);
+    opt.no_full_ref = !full_ref;
+    sigfish_state_t *state = init_sigfish(fasta_file, channels, opt);
     sigfish_read_t reads[channels];
 
     int round=0;
@@ -272,9 +276,72 @@ int real_main2(int argc, char* argv[]){
 
 }
 
+static inline void print_help_msg(FILE *fp_help){
+    fprintf(fp_help,"Usage: sigfish real <file.blow5>\n");
+    fprintf(fp_help,"Usage: sigfish real <ref.fa> <file.blow5> \n");
+
+}
+
 int real_main(int argc, char* argv[]){
 
-    real_main2(argc, argv);
+    const char* optstring = "p:q:t:B:K:v:o:w:hV";
+
+    int longindex = 0;
+    int32_t c = -1;
+    FILE *fp_help = stderr;
+
+    int batch_size = 512;
+    int num_thread = 8;
+    int8_t full_ref = 0;
+
+    //parse the user args
+    while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
+        if (c == 'K') {
+            batch_size = atoi(optarg);
+            if (batch_size < 1) {
+                ERROR("Batch size should larger than 0. You entered %d",batch_size);
+                exit(EXIT_FAILURE);
+            }
+        } else if (c == 't') {
+            num_thread = atoi(optarg);
+            if (num_thread < 1) {
+                ERROR("Number of threads should larger than 0. You entered %d", num_thread);
+                exit(EXIT_FAILURE);
+            }
+        } else if (c=='v'){
+            int v = atoi(optarg);
+            set_log_level((enum sigfish_log_level_opt)v);
+        } else if (c=='V'){
+            fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);
+            exit(EXIT_SUCCESS);
+        } else if (c=='h'){
+            fp_help = stdout;
+        } else if(c == 0 && longindex == 8){ //use full reference
+            full_ref = 1;
+        }
+    }
+
+    if (argc - optind < 1 || fp_help == stdout) {
+        print_help_msg(fp_help);
+        if(fp_help == stdout){
+            exit(EXIT_SUCCESS);
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    const char *slow5file = NULL;
+    const char *fasta_file = NULL;
+    if(argc - optind == 1){
+        slow5file = argv[optind];
+        real_main1(slow5file, fasta_file);
+    } else if (argc - optind == 2){
+        slow5file = argv[optind +1];
+        fasta_file = argv[optind];
+        real_main2(slow5file, fasta_file, full_ref);
+    } else {
+        ERROR("%s","Too many arguments");
+        exit(EXIT_FAILURE);
+    }
 
     return 0;
 }

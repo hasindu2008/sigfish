@@ -1120,7 +1120,7 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                     }
                     char **sp = state->debug ? &(state->debug[i]) : NULL;
                     aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, sp);
-                    if(state->debug[i])fprintf(stderr,"%s",state->debug[i]);
+                    //if(state->debug[i])fprintf(stderr,"%s",state->debug[i]);
                     if(best_aln.score > SIGFISH_DTW_CUTOFF){
                         state->status[channel] = status[i] = SIGFISH_REJECT;
                     } else {
