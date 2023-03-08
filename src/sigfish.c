@@ -932,7 +932,7 @@ void free_sigfish(sigfish_state_t *state){
     free(state->t);
     free(state->status);
     free(state->reads);
-    free_ref(state->ref);
+    if(state->ref) free_ref(state->ref);
 
     if(state->debug_paf){
         if(state->debug_paf!=stdout) fclose(state->debug_paf);
