@@ -717,8 +717,15 @@ char *sprintf_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et
 
     ASSERT(start_event_idx>=0 && start_event_idx<=et.n);
     ASSERT(end_event_idx>=0 && end_event_idx<=et.n);
+
+    fprintf(stderr,"start_event_idx: %ld, end_event_idx: %ld\n", start_event_idx, end_event_idx);
+
+
     uint64_t start_raw_idx = et.event[start_event_idx].start; //inclusive
+    fprintf(stderr,"start_raw_idx: %ld\n", start_raw_idx);
+
     uint64_t end_raw_idx = et.event[end_event_idx].start + et.event[end_event_idx].length; //exclusive
+    fprintf(stderr,"end_raw_idx: %ld\n", et.event[end_event_idx].start);
 
     uint64_t query_size =  end_event_idx-start_event_idx;
     float block_len = aln.pos_end - aln.pos_st;
@@ -969,7 +976,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
             start_idx = 0;end_idx = 0;
         } else if(end_idx > et.n){
             fprintf(stderr,"WARNING: Only %ld events in %ld samples\n",et.n-start_idx,nsample-polyend);
-            end_idx = et.n;
+            end_idx = et.n-1; //TODO: this is a hack, investigate why this happens as et.n is supposed to be inclusive
         }
         normalise_events(et.event,start_idx,end_idx);
 

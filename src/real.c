@@ -247,7 +247,6 @@ int real_main3(const char *slow5file, const char *fasta_file, int8_t full_ref){
         // now feed algorithm with chunks of signal simulating real-time
         const int chunk_size = 1200;
         const int num_chunks = (rec->len_raw_signal + chunk_size -1) / chunk_size;
-        fprintf(stderr, "num_chunks: %d, chunk_size: %d, len_raw_signal: %ld\n", num_chunks, chunk_size, rec->len_raw_signal);
         float **chunks = get_chunks(signal, rec->len_raw_signal, chunk_size, num_chunks);
 
         for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
@@ -264,9 +263,8 @@ int real_main3(const char *slow5file, const char *fasta_file, int8_t full_ref){
             reads[i].raw_signal = chunk;
 
             enum sigfish_status *status = process_sigfish(state, reads, 1);
-            fprintf(stderr,"read %s, round %d, channel %d: %d\n", reads[i].read_id,chunk_i, 0,status[i]);
             if(status[i] != SIGFISH_MORE){
-
+                fprintf(stderr, "Decision %d\n", status[i]);
                 free(status);
                 free(reads[i].read_id);
                 break;
