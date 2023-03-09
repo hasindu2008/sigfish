@@ -718,14 +718,14 @@ char *sprintf_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et
     ASSERT(start_event_idx>=0 && start_event_idx<=et.n);
     ASSERT(end_event_idx>=0 && end_event_idx<=et.n);
 
-    fprintf(stderr,"start_event_idx: %ld, end_event_idx: %ld\n", start_event_idx, end_event_idx);
+    //fprintf(stderr,"start_event_idx: %ld, end_event_idx: %ld\n", start_event_idx, end_event_idx);
 
 
     uint64_t start_raw_idx = et.event[start_event_idx].start; //inclusive
-    fprintf(stderr,"start_raw_idx: %ld\n", start_raw_idx);
+    //fprintf(stderr,"start_raw_idx: %ld\n", start_raw_idx);
 
     uint64_t end_raw_idx = et.event[end_event_idx].start + et.event[end_event_idx].length; //exclusive
-    fprintf(stderr,"end_raw_idx: %ld\n", et.event[end_event_idx].start);
+    //fprintf(stderr,"end_raw_idx: %ld\n", et.event[end_event_idx].start);
 
     uint64_t query_size =  end_event_idx-start_event_idx;
     float block_len = aln.pos_end - aln.pos_st;
