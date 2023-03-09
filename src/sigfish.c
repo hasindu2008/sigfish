@@ -884,6 +884,7 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
         MALLOC_CHK(state->reads[i].raw_signal);
         state->s[i] = init_jnnv3_astate(param);
         state->t[i] = init_jnnv3_pstate(pparam);
+        state->reads[i].read_id = NULL;
 
     }
 
@@ -925,6 +926,7 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
 void free_sigfish(sigfish_state_t *state){
     for(int i=0;i<state->num_channels;i++){
         free(state->reads[i].raw_signal);
+        free(state->reads[i].read_id);
         free_jnnv3_astate(state->s[i]);
         free_jnnv3_pstate(state->t[i]);
     }
@@ -1164,11 +1166,15 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
         r->len_raw_signal = read_batch[i].len_raw_signal;
         r->read_number = read_batch[i].read_number;
         state->status[channel] = state->status_ret[i] = 0;
-        r->read_id = read_batch[i].read_id;
+        if(read_batch[i].read_id){
+            r->read_id=realloc(r->read_id, strlen(read_batch[i].read_id)+1);
+            MALLOC_CHK(r->read_id);
+            strcpy(r->read_id,read_batch[i].read_id);
+        }
         jnnv3_astate_t *s = state->s[channel];
         jnnv3_pstate_t *t = state->t[channel];
         const jnnv3_aparam_t param = JNNV3_ADAPTOR;
-            const jnnv3_pparam_t pparam = JNNV3_POLYA;
+        const jnnv3_pparam_t pparam = JNNV3_POLYA;
         reset_jnnv3_astate(s,param);
         reset_jnnv3_pstate(t,pparam);
         if(r->c_raw_signal < read_batch[i].len_raw_signal){
