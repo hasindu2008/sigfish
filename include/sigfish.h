@@ -276,6 +276,7 @@ typedef struct{
     float* raw_signal;
     uint64_t c_raw_signal;
     char *read_id;
+    uint64_t cur_chunk_st;
 }  sigfish_rstate_t;
 
 typedef struct jnnv3_astate_s jnnv3_astate_t;

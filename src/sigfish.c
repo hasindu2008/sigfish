@@ -1074,8 +1074,10 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
 
             float *sig_store = r->raw_signal;
             int sig_store_i = r->len_raw_signal;
-            float *chunk = sig_store;
-            int current_chunk_size = sig_store_i;
+
+            int cur_chunk_st = r->cur_chunk_st;
+            float *chunk = &sig_store[cur_chunk_st];
+            int current_chunk_size = sig_store_i-cur_chunk_st;
 
             jnnv3_astate_t *s = state->s[channel];
             jnnv3_pstate_t *t = state->t[channel];
@@ -1084,16 +1086,24 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
             const jnnv3_pparam_t pparam = JNNV3_POLYA;
 
             if (s->top == 0){ //enough chunks arrived
+                LOG_TRACE("%s","Enough chunks, start to detect adaptor");
                 jnnv3_acalc_param(s, param, sig_store, sig_store_i);
+                LOG_TRACE("top %f",s->top);
+                chunk = sig_store;
+                current_chunk_size = sig_store_i;
             }
 
             if (!s->adapter_found){
                 jnnv3_acore(s, param, chunk, current_chunk_size);
                 if (s->adapter_found){
                     jnn_pair_t p = s->segs[0];
+                    LOG_TRACE("Adapter found at %ld,%ld. sigstore size %d",p.x,p.y,sig_store_i);
                     jnnv3_pcalc_param(t,p,sig_store,sig_store_i);
                     chunk = &sig_store[p.y];
                     current_chunk_size = sig_store_i-p.y;
+
+                } else {
+                    LOG_TRACE("%s","Adapter not found, continue to detect adaptor");
                 }
             }
 
@@ -1142,8 +1152,8 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
 
 }
 
-void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, int i){
 
+void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, int i){
     int channel = read_batch[i].channel-1;
     ASSERT(channel>=0 && channel < state->num_channels);
 
@@ -1156,8 +1166,9 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
             MALLOC_CHK(r->raw_signal);
         }
         memcpy(r->raw_signal+r->len_raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
+        r->cur_chunk_st = r->len_raw_signal;
         r->len_raw_signal += read_batch[i].len_raw_signal;
-        fprintf(stderr,"same read %d len %ld\n",r->read_number,r->len_raw_signal);
+        LOG_TRACE("same read %d len %ld",r->read_number,r->len_raw_signal);
         if(r->read_id){
             ASSERT(strcmp(r->read_id, read_batch[i].read_id)==0);
         }
@@ -1165,6 +1176,7 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
         r->len_raw_signal = read_batch[i].len_raw_signal;
         r->read_number = read_batch[i].read_number;
         state->status[channel] = state->status_ret[i] = 0;
+        LOG_TRACE("new read %d len %ld",r->read_number,r->len_raw_signal);
         if(read_batch[i].read_id){
             r->read_id=realloc(r->read_id, strlen(read_batch[i].read_id)+1);
             MALLOC_CHK(r->read_id);
@@ -1182,6 +1194,7 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
             MALLOC_CHK(r->raw_signal);
         }
         memcpy(r->raw_signal, read_batch[i].raw_signal, read_batch[i].len_raw_signal*sizeof(float));
+        r->cur_chunk_st = 0;
     }
 
 

@@ -216,6 +216,91 @@ int real_main1(const char *slow5file, const char *fasta_file){
 
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
+
+int real_main3(const char *slow5file, const char *fasta_file, int8_t full_ref){
+
+    fprintf(stderr,"real_main3 with 1 thread\n");
+
+    slow5_file_t *sp = slow5_open(slow5file,"r");
+    if(sp==NULL){
+       fprintf(stderr,"Error in opening file\n");
+       exit(EXIT_FAILURE);
+    }
+    slow5_rec_t *rec = NULL;
+    int ret=0;
+
+    int channels=1;
+
+    sigfish_opt_t opt;
+    opt.num_thread = 1;
+    opt.debug_paf = "-";
+    opt.no_full_ref = !full_ref;
+    sigfish_state_t *state = init_sigfish(fasta_file, channels, opt);
+    sigfish_read_t reads[channels];
+
+    int read_num = 0;
+
+    while((ret = slow5_get_next(&rec,sp)) >= 0){
+
+        float *signal = signal_in_picoamps(rec);
+
+        // now feed algorithm with chunks of signal simulating real-time
+        const int chunk_size = 1200;
+        const int num_chunks = (rec->len_raw_signal + chunk_size -1) / chunk_size;
+        fprintf(stderr, "num_chunks: %d, chunk_size: %d, len_raw_signal: %ld\n", num_chunks, chunk_size, rec->len_raw_signal);
+        float **chunks = get_chunks(signal, rec->len_raw_signal, chunk_size, num_chunks);
+
+        for (int chunk_i=0; chunk_i < num_chunks; chunk_i++){
+            int current_chunk_size = (chunk_i == num_chunks-1) ? rec->len_raw_signal - chunk_i*chunk_size : chunk_size;
+            float *chunk = chunks[chunk_i];
+
+            int i=0;
+            reads[i].channel = i+1;
+            reads[i].read_number = read_num;
+            reads[i].len_raw_signal = current_chunk_size;
+            reads[i].read_id = (char *)malloc(strlen(rec->read_id)+1);
+            strcpy(reads[i].read_id,rec->read_id);
+            ASSERT(reads[i].read_id != NULL);
+            reads[i].raw_signal = chunk;
+
+            enum sigfish_status *status = process_sigfish(state, reads, 1);
+            fprintf(stderr,"read %s, round %d, channel %d: %d\n", reads[i].read_id,chunk_i, 0,status[i]);
+            if(status[i] != SIGFISH_MORE){
+
+                free(status);
+                free(reads[i].read_id);
+                break;
+            }
+            free(status);
+            free(reads[i].read_id);
+
+        }
+
+        free(signal);
+        for (int i=0; i<num_chunks; i++){
+            free(chunks[i]);
+        }
+        free(chunks);
+
+        read_num++;
+
+    }
+
+    if(ret != SLOW5_ERR_EOF){  //check if proper end of file has been reached
+        fprintf(stderr,"Error in slow5_get_next. Error code %d\n",ret);
+        exit(EXIT_FAILURE);
+    }
+
+    free_sigfish(state);
+    slow5_rec_free(rec);
+    slow5_close(sp);
+
+
+    return 0;
+}
+
+
+
 int real_main2(const char *slow5file, const char *fasta_file, int num_thread, int8_t full_ref){
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
@@ -336,7 +421,11 @@ int real_main(int argc, char* argv[]){
     } else if (argc - optind == 2){
         slow5file = argv[optind +1];
         fasta_file = argv[optind];
-        real_main2(slow5file, fasta_file, num_thread, full_ref);
+        if(num_thread > 1){
+            real_main2(slow5file, fasta_file, num_thread, full_ref);
+        } else {
+            real_main3(slow5file, fasta_file, full_ref);
+        }
     } else {
         ERROR("%s","Too many arguments");
         exit(EXIT_FAILURE);
