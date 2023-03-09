@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <assert.h>
 #include "rjnn.h"
 #include "error.h"
 #include "stat.h"
@@ -196,8 +195,8 @@ void reset_jnnv3_pstate(jnnv3_pstate_t *state, jnnv3_pparam_t param){
 
 void jnnv3_pcalc_param(jnnv3_pstate_t *state, jnn_pair_t adapt, float *sig_store, int sig_size){
     jnn_pair_t p = adapt;
-    assert(p.y > 0);
-    assert(p.y < sig_size);
+    ASSERT(p.y > 0);
+    ASSERT(p.y < sig_size);
     state->mean = meanf(&sig_store[p.x],p.y-p.x);
     state->top = state->mean+30+20;
     state->bot = state->mean+30-20;
