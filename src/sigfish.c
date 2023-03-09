@@ -2,7 +2,6 @@
 **
 ** @@
 ******************************************************************************/
-#include <assert.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -233,8 +232,8 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
 void parse_single(core_t* core,db_t* db, int32_t i){
 
-    assert(db->mem_bytes[i]>0);
-    assert(db->mem_records[i]!=NULL);
+    ASSERT(db->mem_bytes[i]>0);
+    ASSERT(db->mem_records[i]!=NULL);
     //db->slow5_rec[i]=NULL;
     int ret=slow5_rec_depress_parse(&db->mem_records[i], &db->mem_bytes[i], NULL, &db->slow5_rec[i], core->sf);
     if(ret!=0){
@@ -299,23 +298,23 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
     jnn_pair_t p=find_adaptor(rec);
     int64_t len_raw_signal = rec->len_raw_signal;
     if(p.y > 0){
-        assert(p.y<len_raw_signal);
+        ASSERT(p.y<len_raw_signal);
 
         float *current = signal_in_picoamps(rec);
         float m_a = meanf(&current[p.x],p.y-p.x);
         // float s_a = stdvf(&current[p.x],p.y-p.x);
         // float k_a = medianf(&current[p.x],p.y-p.x);
 
-        assert(p.y > 0);
-        assert(p.y < len_raw_signal);
+        ASSERT(p.y > 0);
+        ASSERT(p.y < len_raw_signal);
 
         float *adapt_end = &current[p.y];
         jnn_pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
 
         uint64_t i = 0;
         if (polya.y > 0){
-            assert(et.n>0);
-            assert(et.event[i].start>=0);
+            ASSERT(et.n>0);
+            ASSERT(et.event[i].start>=0);
 
             polya.y = polya.y + p.y;
 
@@ -538,7 +537,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             // end_idx = n - core->opt.prefix_size;
             //qlen = start_idx < 0 ? end_idx : core->opt.query_size;
             qlen = end_idx - start_idx;
-            assert(qlen>=0);
+            ASSERT(qlen>=0);
         }
 
         int8_t rna = core->opt.flag & SIGFISH_RNA;
@@ -716,8 +715,8 @@ char *sprintf_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et
     //uint64_t start_event_idx =  db->qstart[i];
     //uint64_t end_event_idx =  db->qend[i];
 
-    assert(start_event_idx>=0 && start_event_idx<=et.n);
-    assert(end_event_idx>=0 && end_event_idx<=et.n);
+    ASSERT(start_event_idx>=0 && start_event_idx<=et.n);
+    ASSERT(end_event_idx>=0 && end_event_idx<=et.n);
     uint64_t start_raw_idx = et.event[start_event_idx].start; //inclusive
     uint64_t end_raw_idx = et.event[end_event_idx].start + et.event[end_event_idx].length; //exclusive
 
@@ -946,10 +945,10 @@ void free_sigfish(sigfish_state_t *state){
 }
 
 aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp){
-    assert(ref != NULL);
-    assert(raw != NULL);
-    assert(nsample > 0);
-    assert(nsample-polyend >= QUERY_SIZE_SIG);
+    ASSERT(ref != NULL);
+    ASSERT(raw != NULL);
+    ASSERT(nsample > 0);
+    ASSERT(nsample-polyend >= QUERY_SIZE_SIG);
     int8_t rna = 1;
 
     aln_t best_aln = {0};
@@ -962,7 +961,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
         int i = 0;
         while(i < et.n && et.event[i].start < (uint64_t)polyend) i++;
         start_idx = i;
-        assert((uint64_t)start_idx < et.n);
+        ASSERT((uint64_t)start_idx < et.n);
         end_idx = start_idx + QUERY_SIZE_EVENTS;
 
         if (start_idx + 25 > et.n ){
@@ -1103,9 +1102,9 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
             }
 
             if(t->polya_found){
-                assert(s->adapter_found == 1);
-                assert(t->seg_i > 0);
-                assert(s->seg_i > 0);
+                ASSERT(s->adapter_found == 1);
+                ASSERT(t->seg_i > 0);
+                ASSERT(s->seg_i > 0);
                 jnn_pair_t polya = t->segs[0];
                 jnn_pair_t adapt = s->segs[0];
                 int st = polya.y+adapt.y-1;

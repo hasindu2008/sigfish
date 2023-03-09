@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <sigfish.h>
 #include "model.h"
 #include "error.h"
@@ -22,14 +21,14 @@ uint32_t eval_num_kmer(uint32_t kmer_size,uint32_t type){
     uint32_t num_kmer = 0;
     if(type==MODEL_TYPE_NUCLEOTIDE){
         num_kmer = (uint32_t)(1 << 2*kmer_size); //num_kmer should be 4^kmer_size
-        assert(num_kmer <= MAX_NUM_KMER);
+        ASSERT(num_kmer <= MAX_NUM_KMER);
     }
     else if (type==MODEL_TYPE_METH){
         num_kmer = (uint32_t)pow(5,kmer_size); //num_kmer should be 5^kmer_size
-        assert(num_kmer <= MAX_NUM_KMER_METH);
+        ASSERT(num_kmer <= MAX_NUM_KMER_METH);
     }
     else {
-        assert(0);
+        ASSERT(0);
     }
     return num_kmer;
 }
@@ -151,22 +150,22 @@ uint32_t set_model(model_t* model, uint32_t model_id) {
         kmer_size=6;
         num_kmer=4096;
         inbuilt_model=r9_4_450bps_nucleotide_6mer_template_model_builtin_data;
-        assert(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
+        ASSERT(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
     }
     // else if(model_id==MODEL_ID_DNA_CPG){
     //     kmer_size=6;
     //     num_kmer=15625;
     //     inbuilt_model=r9_4_450bps_cpg_6mer_template_model_builtin_data;
-    //     assert(num_kmer == (uint32_t)pow(5,kmer_size)); //num_kmer should be 5^kmer_size
+    //     ASSERT(num_kmer == (uint32_t)pow(5,kmer_size)); //num_kmer should be 5^kmer_size
     // }
     else if(model_id==MODEL_ID_RNA_NUCLEOTIDE){
         kmer_size=5;
         num_kmer=1024;
         inbuilt_model=r9_4_70bps_u_to_t_rna_5mer_template_model_builtin_data;
-        assert(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
+        ASSERT(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
     }
     else{
-        assert(0);
+        ASSERT(0);
     }
 
     uint32_t i = 0;

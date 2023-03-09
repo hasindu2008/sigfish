@@ -4,7 +4,6 @@
 ******************************************************************************/
 #include <sigfish.h>
 #include "misc.h"
-#include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
 #include <stdint.h>

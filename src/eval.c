@@ -4,7 +4,6 @@
 ******************************************************************************/
 
 #define _XOPEN_SOURCE 700
-#include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -85,23 +84,23 @@ paf_rec_t *parse_paf_rec(char *buffer){
     MALLOC_CHK(paf);
 
     //read name
-    pch = strtok (buffer,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (buffer,"\t\r\n"); ASSERT(pch!=NULL);
     paf->rid = strdup(pch);
 
     //readlen
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->qlen = atoi(pch);
 
     //query start
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->query_start = atoi(pch);
 
     //query end
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->query_end= atoi(pch);
 
     //relative strand
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     if(strcmp(pch,"+")==0){
         paf->strand=0;
     }
@@ -109,33 +108,33 @@ paf_rec_t *parse_paf_rec(char *buffer){
         paf->strand=1;
     }
     else{
-        assert(0);
+        ASSERT(0);
     }
 
     //targetname
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->tid = strdup(pch);
 
     //target len
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->tlen = atoi(pch);
 
     //target start
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->target_start = atoi(pch);
 
     //target end
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->target_end= atoi(pch);
 
     //num residue
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
 
     //num block
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
 
     //mapq
-    pch = strtok (NULL,"\t\r\n"); assert(pch!=NULL);
+    pch = strtok (NULL,"\t\r\n"); ASSERT(pch!=NULL);
     paf->mapq = atoi(pch);
 
     paf->tp = 'P';
@@ -243,7 +242,7 @@ int is_correct_overlap(paf_rec_t *a, paf_rec_t *b, eval_opt_t *opt)
 
 int compare(paf_rec_t *a, paf_rec_t *b, eval_opt_t *opt){
 
-    assert(strcmp(a->rid,b->rid)==0);
+    ASSERT(strcmp(a->rid,b->rid)==0);
 
     return is_correct_overlap(a,b,opt);
 
@@ -303,7 +302,7 @@ void parse_eval(FILE *paffile, eval_hash_t* truth, eval_opt_t *opt, eval_stat_t 
                 }
             }
             int mapq = paf->mapq;
-            assert(mapq>=0 && mapq<=60);
+            ASSERT(mapq>=0 && mapq<=60);
             if(ret){
                 stat->correct++;
                 stat->mapq_correct[mapq]++;

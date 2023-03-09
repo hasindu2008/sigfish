@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <assert.h>
 #include <getopt.h>
 #include <slow5/slow5.h>
 #include "sigfish.h"
@@ -36,7 +35,7 @@ float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_ch
         int cur_chunk_size = (chunk_i == num_chunks-1) ? nsample - chunk_i*chunk_size : chunk_size;
         for(int j=0; j<cur_chunk_size; j++){
             chunks[chunk_i][j] = raw[chunk_i*chunk_size + j];
-            assert(chunk_i*chunk_size + j < nsample);
+            ASSERT(chunk_i*chunk_size + j < nsample);
         }
     }
     return chunks;
@@ -71,7 +70,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
         for(int j=0; j<current_chunk_size; j++){
             sig_store[sig_store_i] = chunk[j];
             sig_store_i++;
-            assert(sig_store_i <= nsample);
+            ASSERT(sig_store_i <= nsample);
         }
 
         if (chunk_i < start_chunks){ //nothing
@@ -105,9 +104,9 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
         }
 
         if(t->polya_found){
-            assert(s->adapter_found == 1);
-            assert(t->seg_i > 0);
-            assert(s->seg_i > 0);
+            ASSERT(s->adapter_found == 1);
+            ASSERT(t->seg_i > 0);
+            ASSERT(s->seg_i > 0);
             jnn_pair_t polya = t->segs[0];
             jnn_pair_t adapt = s->segs[0];
             int st = polya.y+adapt.y-1;
@@ -128,17 +127,17 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
     if(ref==NULL){
         if(s->seg_i<=0){
-            assert(s->adapter_found == 0);
+            ASSERT(s->adapter_found == 0);
             printf(".\t.\t");
         } else{
             printf("%ld\t%ld\t",s->segs[0].x,s->segs[0].y);
         }
         if(t->seg_i <= 0){
-            assert(t->polya_found == 0);
+            ASSERT(t->polya_found == 0);
             printf(".\t.\n");
         } else {
             jnn_pair_t polya = t->segs[0];
-            assert(polya.y + s->segs[0].y < sig_store_i);
+            ASSERT(polya.y + s->segs[0].y < sig_store_i);
             printf("%ld\t%ld\n",polya.x+s->segs[0].y-1, polya.y+s->segs[0].y-1);
         }
     }else{
@@ -172,7 +171,7 @@ int real_main1(const char *slow5file, const char *fasta_file){
     refsynth_t *ref = NULL;
     if(fasta_file){
         const char *ref_name = fasta_file;
-        assert(ref_name != NULL);
+        ASSERT(ref_name != NULL);
         model_t *pore_model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
         MALLOC_CHK(pore_model);
         uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
@@ -245,7 +244,7 @@ int real_main2(const char *slow5file, const char *fasta_file, int num_thread, in
             reads[i].len_raw_signal = rec->len_raw_signal;
             reads[i].read_id = (char *)malloc(strlen(rec->read_id)+1);
             strcpy(reads[i].read_id,rec->read_id);
-            assert(reads[i].read_id != NULL);
+            ASSERT(reads[i].read_id != NULL);
             reads[i].raw_signal = (float*)malloc(sizeof(float)*rec->len_raw_signal);
             for (int j=0; j<rec->len_raw_signal; j++){
                 reads[i].raw_signal[j] = TO_PICOAMPS(rec->raw_signal[j],rec->digitisation,rec->offset,rec->range);

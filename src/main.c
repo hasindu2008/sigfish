@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
-#include <assert.h>
 #include <sigfish.h>
 #include "misc.h"
 #include "error.h"
@@ -56,7 +55,7 @@ int print_usage(FILE *fp_help){
         exit(EXIT_SUCCESS);
     }
     else{
-        assert(0);
+        ASSERT(0);
     }
 
 

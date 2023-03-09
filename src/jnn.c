@@ -2,8 +2,6 @@
 **
 ** @@
 ******************************************************************************/
-
-#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,7 +17,7 @@
 static float *rolling_window(const float *x, int n, int w) {
     // int i = 0;
 
-    assert(w<n);
+    ASSERT(w<n);
 
     float *t = (float*)malloc(sizeof(float)*(n-w));
     MALLOC_CHK(t);
@@ -40,7 +38,7 @@ static float *rolling_window(const float *x, int n, int w) {
     t[0]=tt/w;
     for(int i=1;i<n-w;i++){
         tt -= x[i-1];
-        assert(i+w-1<n);
+        ASSERT(i+w-1<n);
         tt += x[i+w-1];
         t[i]=tt/w;
     }

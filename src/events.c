@@ -8,7 +8,6 @@
 ******************************************************************************/
 
 #define _XOPEN_SOURCE 700
-#include <assert.h>
 #include <errno.h>
 #include <float.h>
 #include <inttypes.h>
@@ -101,7 +100,7 @@ void quantilef(const float* x, size_t nx, float* p, size_t np) {
         return;
     }
     for (unsigned int i = 0; i < np; i++) {
-        assert(p[i] >= 0.0f && p[i] <= 1.0f);
+        ASSERT(p[i] >= 0.0f && p[i] <= 1.0f);
     }
     if (NULL == x) {
         for (unsigned i = 0; i < np; i++) {
@@ -215,8 +214,8 @@ static float madf(const float* x, size_t n, const float* med) {
  *	@return A range structure containing new start and end for read
  **/
 raw_table trim_raw_by_mad(raw_table rt, int chunk_size, float perc) {
-    assert(chunk_size > 1);
-    assert(perc >= 0.0 && perc <= 1.0);
+    ASSERT(chunk_size > 1);
+    ASSERT(perc >= 0.0 && perc <= 1.0);
 
     const size_t nsample = rt.end - rt.start;
     const size_t nchunk = nsample / chunk_size;
@@ -243,7 +242,7 @@ raw_table trim_raw_by_mad(raw_table rt, int chunk_size, float perc) {
         }
         rt.end -= chunk_size;
     }
-    assert(rt.end > rt.start);
+    ASSERT(rt.end > rt.start);
 
     free(madarr);
 
@@ -296,7 +295,7 @@ typedef Detector* DetectorPtr;
  **/
 void compute_sum_sumsq(const float* data, double* sum, double* sumsq,
                        size_t d_length) {
-    assert(d_length > 0);
+    ASSERT(d_length > 0);
 
     sum[0] = 0.0f;
     sumsq[0] = 0.0f;
@@ -318,8 +317,8 @@ void compute_sum_sumsq(const float* data, double* sum, double* sumsq,
  **/
 float* compute_tstat(const double* sum, const double* sumsq, size_t d_length,
                      size_t w_length) {
-    assert(d_length > 0);
-    assert(w_length > 0);
+    ASSERT(d_length > 0);
+    ASSERT(w_length > 0);
 
     float* tstat = (float*)calloc(d_length, sizeof(float));
 
@@ -375,7 +374,7 @@ float* compute_tstat(const double* sum, const double* sumsq, size_t d_length,
 size_t* short_long_peak_detector(DetectorPtr short_detector,
                                  DetectorPtr long_detector,
                                  const float peak_height) {
-    assert(short_detector->signal_length == long_detector->signal_length);
+    ASSERT(short_detector->signal_length == long_detector->signal_length);
 
     const size_t ndetector = 2;
     DetectorPtr detectors[] = {short_detector, long_detector};
@@ -460,8 +459,8 @@ size_t* short_long_peak_detector(DetectorPtr short_detector,
  **/
 event_t create_event(size_t start, size_t end, double const* sums,
                      double const* sumsqs, size_t nsample) {
-    assert(start < nsample);
-    assert(end <= nsample);
+    ASSERT(start < nsample);
+    ASSERT(end <= nsample);
 
     event_t event = {0};
     //event.pos = -1;

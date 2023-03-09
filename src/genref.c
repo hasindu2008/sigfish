@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <zlib.h>
 
 #include <sigfish.h>
@@ -111,7 +110,7 @@ refsynth_t *gen_ref(const char *genome, model_t *pore_model, uint32_t kmer_size,
 
     int i = 0;
     while ((l = kseq_read(seq)) >= 0) {
-        assert(l==(int)strlen(seq->seq.s));
+        ASSERT(l==(int)strlen(seq->seq.s));
 
         if(i+1 > c){
             c *= 2;

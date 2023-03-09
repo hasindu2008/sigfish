@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include <assert.h>
 #include "error.h"
 
 //adapted from https://github.com/lh3/minimap2/blob/master/kseq.h
@@ -61,7 +60,7 @@ static inline void sprintf_append(kstring_t *s, const char *fmt, ... ){
 	int len = vsnprintf(buffer,10000,fmt,ap);
 	va_end(ap);
 
-	assert(len>=0);
+	ASSERT(len>=0);
 	if(len>=10000){
 		WARNING("Too long string got truncated: %s",buffer);
 	}
