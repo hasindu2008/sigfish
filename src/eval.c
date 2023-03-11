@@ -214,7 +214,7 @@ eval_hash_t* get_truth(FILE *paffile,eval_stat_t *stat){
 }
 
 
-#define THRESHOLD 100
+#define THRESHOLD 200
 int is_correct_overlap(paf_rec_t *a, paf_rec_t *b, eval_opt_t *opt)
 {
     if (strcmp(a->tid,b->tid)!=0 || a->strand != b->strand){
