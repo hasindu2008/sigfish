@@ -864,12 +864,19 @@ void set_log_level(enum sigfish_log_level_opt level){
 
 //realtime stuff
 
+//todo init_opt()
+
 sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_opt_t opt){
     sigfish_state_t *state = (sigfish_state_t *)malloc(sizeof(sigfish_state_t));
     MALLOC_CHK(state);
     state->num_channels = num_channels;
     ASSERT(opt.num_thread>0 && opt.num_thread<1000);
     state->num_thread = opt.num_thread;
+    state->opt = opt;
+    ASSERT(opt.dtw_cutoff > 0 && opt.dtw_cutoff < 10000);
+    ASSERT(opt.query_size_events > 0 && opt.query_size_events < 10000);
+    ASSERT(opt.query_size_sig > 0 && opt.query_size_events < 100000);
+    //todo some checks
 
     state->status = (enum sigfish_status*)calloc(num_channels,sizeof(enum sigfish_status));
     MALLOC_CHK(state->status);
@@ -905,7 +912,7 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
         if(opt.no_full_ref == 0) {
             flag |= SIGFISH_REF;
         }
-        int32_t query_size = QUERY_SIZE_EVENTS;
+        int32_t query_size = state->opt.query_size_events;
         state->ref= gen_ref(ref_name, pore_model, kmer_size, flag, query_size);
         free(pore_model);
 
@@ -951,11 +958,11 @@ void free_sigfish(sigfish_state_t *state){
 
 }
 
-aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp){
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp, sigfish_opt_t opt){
     ASSERT(ref != NULL);
     ASSERT(raw != NULL);
     ASSERT(nsample > 0);
-    ASSERT(nsample-polyend >= QUERY_SIZE_SIG);
+    ASSERT(nsample-polyend >= opt.query_size_sig);
     int8_t rna = 1;
 
     aln_t best_aln = {0};
@@ -969,7 +976,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
         while(i < et.n && et.event[i].start < (uint64_t)polyend) i++;
         start_idx = i;
         ASSERT((uint64_t)start_idx < et.n);
-        end_idx = start_idx + QUERY_SIZE_EVENTS;
+        end_idx = start_idx + opt.query_size_events;
 
         if (start_idx + 25 > et.n ){
             fprintf(stderr,"WARNING: not enough events to map - a weird read (<25 events in %ld samples)\n",nsample-polyend);
@@ -1023,7 +1030,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
 
 #define SIGFISH_CHUNK_SIZE 1200
 #define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
-#define SIGFISH_DTW_CUTOFF 70
+// #define SIGFISH_DTW_CUTOFF 70
 
 
 void test1(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
@@ -1126,7 +1133,7 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                 jnn_pair_t adapt = s->segs[0];
                 int st = polya.y+adapt.y-1;
                 int leftover = sig_store_i - st;
-                if(leftover >= QUERY_SIZE_SIG){
+                if(leftover >= state->opt.query_size_sig){
                     //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
                     char *read_id;
                     char tmp[100];
@@ -1137,9 +1144,9 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                         read_id = tmp;
                     }
                     char **sp = state->debug ? &(state->debug[i]) : NULL;
-                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, sp);
+                    aln_t best_aln=map(state->ref, sig_store, sig_store_i, st, read_id, sp, state->opt);
                     //if(state->debug[i])fprintf(stderr,"%s",state->debug[i]);
-                    if(best_aln.score < SIGFISH_DTW_CUTOFF){
+                    if(best_aln.score < state->opt.dtw_cutoff){
                         state->status[channel] = status[i] = SIGFISH_REJECT;
                     } else {
                         state->status[channel] = status[i] = SIGFISH_CONT;

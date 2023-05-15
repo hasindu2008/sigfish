@@ -10,6 +10,10 @@ int main(){
     opt.num_thread = 1;
     opt.debug_paf = NULL;
     opt.no_full_ref = 0;
+    opt.dtw_cutoff = 70.0;
+    opt.query_size_events = 250;
+    opt.query_size_sig = 6000;
+
     sigfish_state_t *state = init_sigfish(NULL, CHANNELS, opt);
     sigfish_read_t reads[CHANNELS];
 

@@ -41,7 +41,7 @@ float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_ch
     return chunks;
 }
 
-void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t, refsynth_t *ref, char *read_id){
+void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t, refsynth_t *ref, char *read_id, sigfish_opt_t opt){
 
     // now feed algorithm with chunks of signal simulating real-time
     const int chunk_size = 1200;
@@ -111,10 +111,10 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             jnn_pair_t adapt = s->segs[0];
             int st = polya.y+adapt.y-1;
             int leftover = sig_store_i - st;
-            if(leftover >= QUERY_SIZE_SIG){
+            if(leftover >= opt.query_size_sig){
                 //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
                 if(ref){
-                    best_aln=map(ref, sig_store, sig_store_i, st, read_id, &paf);
+                    best_aln=map(ref, sig_store, sig_store_i, st, read_id, &paf, opt);
                 }
                 break;
             } else {
@@ -168,6 +168,10 @@ int real_main1(const char *slow5file, const char *fasta_file){
     slow5_rec_t *rec = NULL;
     int ret=0;
 
+    sigfish_opt_t opt;
+    opt.query_size_events = 250;
+    opt.query_size_sig = 6000;
+
     refsynth_t *ref = NULL;
     if(fasta_file){
         const char *ref_name = fasta_file;
@@ -177,7 +181,7 @@ int real_main1(const char *slow5file, const char *fasta_file){
         uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
         uint32_t flag = 0;
         flag |= SIGFISH_RNA;
-        int32_t query_size = QUERY_SIZE_EVENTS;
+        int32_t query_size = opt.query_size_events;
         ref = gen_ref(ref_name, pore_model, kmer_size, flag, query_size);
         free(pore_model);
 
@@ -193,7 +197,7 @@ int real_main1(const char *slow5file, const char *fasta_file){
     while((ret = slow5_get_next(&rec,sp)) >= 0){
         if(ref == NULL) printf("%s\t%ld\t",rec->read_id,rec->len_raw_signal);
         float *signal = signal_in_picoamps(rec);
-        jnn_v3(signal, rec->len_raw_signal, param, s, pparam, t, ref, rec->read_id);
+        jnn_v3(signal, rec->len_raw_signal, param, s, pparam, t, ref, rec->read_id, opt);
         free(signal);
     }
 
