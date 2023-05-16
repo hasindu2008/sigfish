@@ -158,7 +158,9 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
 
 
-int real_main1(const char *slow5file, const char *fasta_file){
+int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
+
+    fprintf(stderr,"real_main1: realtime jnn with 1 thread\n");
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -167,10 +169,6 @@ int real_main1(const char *slow5file, const char *fasta_file){
     }
     slow5_rec_t *rec = NULL;
     int ret=0;
-
-    sigfish_opt_t opt;
-    opt.query_size_events = 250;
-    opt.query_size_sig = 6000;
 
     refsynth_t *ref = NULL;
     if(fasta_file){
@@ -221,9 +219,9 @@ int real_main1(const char *slow5file, const char *fasta_file){
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
 
-int real_main3(const char *slow5file, const char *fasta_file, int8_t full_ref){
+int real_main3(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"real_main3 with 1 thread\n");
+    fprintf(stderr,"real_main3: realtime jnn+dtw with 1 thread\n");
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -235,10 +233,8 @@ int real_main3(const char *slow5file, const char *fasta_file, int8_t full_ref){
 
     int channels=1;
 
-    sigfish_opt_t opt;
-    opt.num_thread = 1;
-    opt.debug_paf = "-";
-    opt.no_full_ref = !full_ref;
+    ASSERT(opt.num_thread == 1);
+
     sigfish_state_t *state = init_sigfish(fasta_file, channels, opt);
     sigfish_read_t reads[channels];
 
@@ -303,7 +299,9 @@ int real_main3(const char *slow5file, const char *fasta_file, int8_t full_ref){
 
 
 
-int real_main2(const char *slow5file, const char *fasta_file, int num_thread, int8_t full_ref){
+int real_main2(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
+
+    fprintf(stderr,"real_main2: realtime jnn+dtw with %d threads\n", opt.num_thread);
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -315,10 +313,8 @@ int real_main2(const char *slow5file, const char *fasta_file, int num_thread, in
 
     int channels=512;
 
-    sigfish_opt_t opt;
-    opt.num_thread = num_thread;
-    opt.debug_paf = "-";
-    opt.no_full_ref = !full_ref;
+    ASSERT(opt.num_thread > 1);
+
     sigfish_state_t *state = init_sigfish(fasta_file, channels, opt);
     sigfish_read_t reads[channels];
 
@@ -368,6 +364,8 @@ static inline void print_help_msg(FILE *fp_help){
 
 }
 
+#define SAMPLES_PER_EVENT 24
+
 int real_main(int argc, char* argv[]){
 
     const char* optstring = "p:q:t:B:K:v:o:w:hV";
@@ -380,6 +378,14 @@ int real_main(int argc, char* argv[]){
     int num_thread = 8;
     int8_t full_ref = 0;
 
+    sigfish_opt_t opt;
+    opt.num_thread = num_thread;
+    opt.debug_paf = "-";
+    opt.no_full_ref = !full_ref;
+    opt.dtw_cutoff = 70;
+    opt.query_size_events = 250;
+    opt.query_size_sig = SAMPLES_PER_EVENT * opt.query_size_events;
+
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
         if (c == 'K') {
@@ -389,7 +395,7 @@ int real_main(int argc, char* argv[]){
                 exit(EXIT_FAILURE);
             }
         } else if (c == 't') {
-            num_thread = atoi(optarg);
+            opt.num_thread = num_thread = atoi(optarg);
             if (num_thread < 1) {
                 ERROR("Number of threads should larger than 0. You entered %d", num_thread);
                 exit(EXIT_FAILURE);
@@ -404,6 +410,15 @@ int real_main(int argc, char* argv[]){
             fp_help = stdout;
         } else if(c == 0 && longindex == 8){ //use full reference
             full_ref = 1;
+            opt.no_full_ref = !full_ref;
+        } else if (c == 'q'){ //query size
+            opt.query_size_events = atoi(optarg);
+            if (opt.query_size_events < 0) {
+                ERROR("Query size should larger than 0. You entered %d",opt.query_size_events);
+                exit(EXIT_FAILURE);
+            }
+            opt.query_size_sig = SAMPLES_PER_EVENT * opt.query_size_events;
+            opt.dtw_cutoff = 70 * opt.query_size_events / 250;
         }
     }
 
@@ -419,14 +434,14 @@ int real_main(int argc, char* argv[]){
     const char *fasta_file = NULL;
     if(argc - optind == 1){
         slow5file = argv[optind];
-        real_main1(slow5file, fasta_file);
+        real_main1(slow5file, fasta_file, opt);
     } else if (argc - optind == 2){
         slow5file = argv[optind +1];
         fasta_file = argv[optind];
         if(num_thread > 1){
-            real_main2(slow5file, fasta_file, num_thread, full_ref);
+            real_main2(slow5file, fasta_file, opt);
         } else {
-            real_main3(slow5file, fasta_file, full_ref);
+            real_main3(slow5file, fasta_file, opt);
         }
     } else {
         ERROR("%s","Too many arguments");
