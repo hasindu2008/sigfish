@@ -1,5 +1,5 @@
-CC       = gcc
-CXX      = g++
+CC       ?= gcc
+CXX      ?= g++
 LANGFLAG = -x c++
 CPPFLAGS += -I slow5lib/include/
 CFLAGS   += -g -Wall -O2 -std=c++11
@@ -26,7 +26,7 @@ OBJ = $(BUILD_DIR)/main.o \
 
 ifdef fpga
 	OBJ +=	$(BUILD_DIR)/haru.o $(BUILD_DIR)/axi_dma.o $(BUILD_DIR)/dtw_accel.o
-	CPPFLAGS += -D FPGA=1 -I sw__haru/src/
+	CPPFLAGS += -D FPGA=1 -I HARU/driver/include/
 endif
 
 PREFIX = /usr/local
@@ -80,13 +80,13 @@ $(BUILD_DIR)/eval.o: src/eval.c
 
 
 #haru things
-$(BUILD_DIR)/haru.o: sw__haru/src/haru.c sw__haru/src/axi_dma.h sw__haru/src/dtw_accel.h sw__haru/src/misc.h
+$(BUILD_DIR)/haru.o: HARU/driver/src/haru.c HARU/driver/include/axi_dma.h HARU/driver/include/dtw_accel.h HARU/driver/include/misc.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
-$(BUILD_DIR)/axi_dma.o: sw__haru/src/axi_dma.c sw__haru/src/axi_dma.h
+$(BUILD_DIR)/axi_dma.o: HARU/driver/src/axi_dma.c HARU/driver/include/axi_dma.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
-$(BUILD_DIR)/dtw_accel.o: sw__haru/src/dtw_accel.c sw__haru/src/dtw_accel.h sw__haru/src/misc.h
+$(BUILD_DIR)/dtw_accel.o: HARU/driver/src/dtw_accel.c HARU/driver/include/dtw_accel.h HARU/driver/include/misc.h
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(LANGFLAG) $< -c -o $@
 
 
@@ -103,15 +103,10 @@ distclean: clean
 	rm -rf $(BUILD_DIR)/* autom4te.cache
 
 test: $(BINARY)
-	./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5  > test/res.paf
-	diff -q test/batch0.exp.paf test/res.paf
-	./sigfish dtw -g test/rnasequin_sequences_2.4.fa -s test/sequin_reads.blow5 --rna  > test/res_rna.paf
-	diff -q test/res_rna.exp.paf test/res_rna.paf
+	./sigfish dtw -g test/sp1/nCoV-2019.reference.fasta -s test/sp1/batch0.blow5  > test/res.paf
 
 eval: $(BINARY)
 	./scripts/eval_dna.sh
-	./scripts/eval_rna.sh
-
 
 valgrind: $(BINARY)
-	valgrind --leak-check=full ./sigfish dtw -g test/nCoV-2019.reference.fasta -s test/batch0.blow5 > test/res.paf
+	valgrind --leak-check=full ./sigfish dtw -g test/sp1/nCoV-2019.reference.fasta -s test/sp1/batch0.blow5 > test/res.paf

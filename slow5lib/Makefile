@@ -3,7 +3,7 @@
 # or uncomment the following line
 #zstd=1
 
-CC			= cc
+CC			?= cc
 AR			= ar
 SVB			= thirdparty/streamvbyte
 SVBLIB		= $(SVB)/libstreamvbyte.a

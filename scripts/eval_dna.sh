@@ -4,11 +4,11 @@ set -e
 
 HARU_VENV=~/haru/
 MINIMAP2=minimap2
-FASTQ=test/batch0.fastq
-REF=test/nCoV-2019.reference.fasta
-BLOW5=test/batch0.blow5
+FASTQ=test/sp1/batch0.fastq
+REF=test/sp1/nCoV-2019.reference.fasta
+BLOW5=test/sp1/batch0.blow5
 THREADS=8
-REF_PAF=test/batch0.minimap2.paf
+REF_PAF=test/sp1/batch0.minimap2.paf
 MY_PAF=test/test.paf
 
 make
