@@ -14,6 +14,7 @@
 #include "cdtw.h"
 #include "stat.h"
 #include "jnn.h"
+#include "str.h"
 
 #include "slow5/slow5.h"
 #include "../slow5lib/src/slow5_extra.h"
@@ -172,6 +173,9 @@ db_t* init_db(core_t* core) {
 
     db->aln = (aln_t *)malloc(sizeof(aln_t) * db->capacity_rec);
     MALLOC_CHK(db->et);
+
+    db->out = (char **)calloc(db->capacity_rec, sizeof(char *));
+    MALLOC_CHK(db->out);
 
     db->qstart = (int64_t *)malloc(sizeof(int64_t) * db->capacity_rec);
     MALLOC_CHK(db->qstart);
@@ -428,12 +432,50 @@ aln_t *init_aln(){
     int32_t rid = -1;
     char d = 0;
     for (int l=0; l<SECONDARY_CAP;l++) {
-        aln_t tmp = {rid,pos,pos,score,score2,d,0};
+        aln_t tmp = {rid,pos,pos,score,score2,d,0,NULL,0};
         aln[l] = tmp;
     }
-
     return aln;
 }
+
+void free_aln(aln_t *aln){
+    for (int l=0; l<SECONDARY_CAP;l++) {
+        free(aln[l].r2qevent_map);
+    }
+    free(aln);
+}
+
+
+static index_pair_t *path_to_map(Path p, int32_t len){
+
+    index_pair_t *r2qevent_map = (index_pair_t *)malloc(sizeof(index_pair_t)*len);
+    MALLOC_CHK(r2qevent_map);
+    for(int i=0; i<len; i++){
+        r2qevent_map[i].start = -1;
+        r2qevent_map[i].stop = -1;
+    }
+
+    assert(p.k>0);
+    int ref_st = p.py[0];
+
+    for(int i=0;i<p.k;i++){
+
+        int ref_idx = p.py[i]-ref_st;
+        int query_idx = p.px[i];
+
+        assert(ref_idx<len);
+
+        if(r2qevent_map[ref_idx].start == -1){
+            r2qevent_map[ref_idx].start = query_idx;
+        }
+        r2qevent_map[ref_idx].stop = query_idx;
+
+    }
+
+    return r2qevent_map;
+}
+
+
 
 void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float *cost, int32_t qlen, int32_t rlen){
     int l=0;
@@ -446,6 +488,10 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
     }
 
     if(l!=0){
+        if(aln[0].r2qevent_size){
+            aln[0].r2qevent_size=0;
+            free(aln[0].r2qevent_map);
+        }
         for(int m=0;m<l-1;m++){
             aln[m] = aln[m+1];
         }
@@ -462,11 +508,17 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
             }else{
                 aln[l-1].pos_st = p.py[0];
                 if(p.py[p.k-1] != pos){
-                    fprintf(stderr,"SOme shit happened in the backtracking\n");
+                    fprintf(stderr,"Some shit happened in the backtracking\n");
                     fprintf(stderr,"%d %d %d %d %d\n",qlen,rlen,pos,aln[l-1].pos_st,p.py[p.k-1]);
                 }
 
+                int len = aln[l-1].pos_end - aln[l-1].pos_st + 1;
+                assert(len >= 0);
+                aln[l-1].r2qevent_size = len;
+                aln[l-1].r2qevent_map = path_to_map(p, len);
+
             }
+
             free(p.px);
             free(p.py);
         }
@@ -476,9 +528,176 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
         }
 
     }
+}
+
+static char *paf_str(aln_t *aln, char *read_id, char *rname, uint64_t start_raw_idx , uint64_t end_raw_idx, uint64_t query_size, int8_t rna, uint64_t len_raw_signal, uint64_t rlength){
+
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, 4000);
+
+    float block_len = aln->pos_end - aln->pos_st;
+    float residue = block_len -aln->score*block_len/(query_size) ;
+
+    // if(db->aln[i].score>70){
+    //     continue;
+    // }
+
+    sprintf_append(sp, "%s\t",read_id); // read id name
+    sprintf_append(sp, "%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+    sprintf_append(sp, "%c\t",aln->d); // Direction
+    sprintf_append(sp, "%s\t",rname); // reference sequence name
+    sprintf_append(sp, "%d\t",rlength); // reference sequence length
+
+
+    sprintf_append(sp, "%d\t",aln->pos_st); // Reference start
+    sprintf_append(sp, "%d\t",aln->pos_end); // Reference end
+    sprintf_append(sp, "%d\t",(int)round(residue)); // Number of residues //todo check this
+    sprintf_append(sp, "%d\t",(int)round(block_len)); //  Alignment block length //todo check this
+    sprintf_append(sp, "%d\t",aln->mapq); // Mapq
+    sprintf_append(sp, "tp:A:P\t");
+    sprintf_append(sp, "d1:f:%.2f\t",aln->score); // distance of the best match
+    sprintf_append(sp, "d2:f:%.2f",aln->score2); // distance of the second best matcj
+
+    sprintf_append(sp, "\n");
+    str.s[str.l] = '\0';
+    return sp->s;
+}
+
+static char *r2qevent_map_to_ss(aln_t *aln, int64_t qstart, event_table et, int8_t rna){
+    index_pair_t *base_to_event_map = aln->r2qevent_map;
+    int32_t n_kmers = aln->r2qevent_size;
+    for(int i=0; i<n_kmers; i++){
+        base_to_event_map[i].start += qstart;
+        base_to_event_map[i].stop += qstart;
+    }
+
+    //lazily copy pasted from https://github.com/hasindu2008/f5c/blob/master/src/resquiggle.c for now
+    int64_t signal_start_point = -1;
+    int64_t signal_end_point = -1;
+
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, 4000);
+    int64_t ci = 0; //current index
+    int64_t mi = 0;
+    int64_t d = 0; //deletion count
+    int8_t ff = 1; //first start flag
+    int matches = 0;
+
+    if (rna){
+        for (int j = 0; j < n_kmers/2; ++j) {
+            index_pair_t tmp= base_to_event_map[j];
+            base_to_event_map[j]=base_to_event_map[n_kmers-1-j];
+            base_to_event_map[n_kmers-1-j]=tmp;
+        }
+        for (int j = 0; j < n_kmers; ++j) {
+            int32_t tmp = base_to_event_map[j].start;
+            base_to_event_map[j].start = base_to_event_map[j].stop;
+            base_to_event_map[j].stop = tmp;
+        }
+    }
+
+    for (int j=0;j<n_kmers; j++){
+        int32_t start_event_idx = base_to_event_map[j].start;
+        int32_t end_event_idx = base_to_event_map[j].stop;
+        if(start_event_idx == -1){ //deletion from ref
+            assert(end_event_idx == -1);
+            signal_start_point = signal_end_point = -1;
+            if(!ff){
+                assert(j!=0);
+                d++;
+            }
+
+        } else {
+            assert(end_event_idx != -1);
+            //assert(start_event_idx <= end_event_idx);
+
+            signal_start_point = et.event[start_event_idx].start; //inclusive
+            if(ff) {
+                ff=0;
+            }
+            signal_end_point = et.event[end_event_idx].start + (int)et.event[end_event_idx].length; //non-inclusive
+
+            if(d>0){
+                sprintf_append(sp,"%dD",d);
+                d=0;
+            }
+            if(j==0) ci = signal_start_point;
+            ci += (mi =  signal_start_point - ci);
+            if(mi) sprintf_append(sp,"%dI",(int)mi);
+            ci += (mi = signal_end_point-signal_start_point);
+
+            if(mi) {
+                matches++;
+                sprintf_append(sp,"%d,",(int)mi);
+            }
+
+
+        }
+    }
+
+    str.s[str.l] = '\0';
+    return sp->s;
 
 }
 
+static char *sam_str(aln_t *aln, char *read_id, char *rname, uint64_t start_raw_idx , uint64_t end_raw_idx, uint64_t qlen, int64_t qstart, event_table et, int8_t rna) {
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, 4000);
+
+    int flag = aln->d == '+' ? 0 : 16;
+    sprintf_append(sp, "%s\t%d\t", read_id, flag); //qname, flag
+    sprintf_append(sp, "%s\t%ld\t%d\t", rname, (long)aln->pos_st+1, aln->mapq); //rname, pos, mapq
+    sprintf_append(sp, "%ldM\t%c\t%d\t%d\t",qlen, '*', 0, 0); //cigar, rnext, pnext, tlen
+
+    sprintf_append(sp, "%c\t%c\t",'*','*'); //seq, qual
+
+    uint64_t post_st = rna ? aln->pos_end : aln->pos_st;
+    uint64_t post_end = rna ?aln->pos_st : aln->pos_end;
+
+    sprintf_append(sp, "si:Z:%ld,%ld,%ld,%ld\t",start_raw_idx, end_raw_idx, post_st, post_end);
+
+    char *ss = r2qevent_map_to_ss(aln, qstart, et, rna);
+    sprintf_append(sp, "ss:Z:%s",ss);
+    free(ss);
+
+    sprintf_append(sp, "\n");
+    str.s[str.l] = '\0';
+    return sp->s;
+}
+
+static void aln_to_str(core_t* core,db_t* db, int32_t i){
+
+    if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
+        // Output of results
+        uint64_t start_event_idx =  db->qstart[i];
+        uint64_t end_event_idx =  db->qend[i];
+        assert(start_event_idx>=0 && start_event_idx<=db->et[i].n);
+        assert(end_event_idx>=0 && end_event_idx<=db->et[i].n);
+        uint64_t start_raw_idx = db->et[i].event[start_event_idx].start; //inclusive
+        uint64_t end_raw_idx = db->et[i].event[end_event_idx].start + db->et[i].event[end_event_idx].length; //exclusive
+
+        uint64_t query_size =  end_event_idx-start_event_idx;
+        uint64_t len_raw_signal = db->slow5_rec[i]->len_raw_signal;
+        uint64_t rlength = core->ref->ref_seq_lengths[db->aln[i].rid];
+        char *read_id = db->slow5_rec[i]->read_id;
+        char *rname = core->ref->ref_names[db->aln[i].rid];
+        int8_t rna = core->opt.flag & SIGFISH_RNA;
+
+
+        if(core->opt.flag & SIGFISH_SAM){ //can bring duplicate stuff in output_db for paf here
+            db->out[i] = sam_str(&db->aln[i], read_id, rname, start_raw_idx , end_raw_idx, query_size, start_event_idx,db->et[i], rna);
+        } else {
+            db->out[i] = paf_str(&db->aln[i], read_id, rname, start_raw_idx , end_raw_idx, query_size, rna, len_raw_signal, rlength);
+        }
+    } else {
+        db->out[i] = NULL;
+    }
+
+
+}
 
 void dtw_single(core_t* core,db_t* db, int32_t i) {
 
@@ -636,8 +855,12 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             mapq=60;
         }
         db->aln[i].mapq = mapq;
+        db->aln[i].r2qevent_map = aln[SECONDARY_CAP-1].r2qevent_map;
+        db->aln[i].r2qevent_size = aln[SECONDARY_CAP-1].r2qevent_size;
 
-        free(aln);
+        aln_to_str(core,db,i);
+        free_aln(aln);
+
     }
 
 }
@@ -697,6 +920,7 @@ void process_db(core_t* core,db_t* db){
     core->process_db_time += (proc_end-proc_start);
 }
 
+
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db) {
 
@@ -716,42 +940,11 @@ void output_db(core_t* core, db_t* db) {
         // printf("\n");
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
-
-            // Output of results
-            uint64_t start_event_idx =  db->qstart[i];
-            uint64_t end_event_idx =  db->qend[i];
-            assert(start_event_idx>=0 && start_event_idx<=db->et[i].n);
-            assert(end_event_idx>=0 && end_event_idx<=db->et[i].n);
-            uint64_t start_raw_idx = db->et[i].event[start_event_idx].start; //inclusive
-            uint64_t end_raw_idx = db->et[i].event[end_event_idx].start + db->et[i].event[end_event_idx].length; //exclusive
-
-            uint64_t query_size =  end_event_idx-start_event_idx;
-            float block_len = db->aln[i].pos_end - db->aln[i].pos_st;
-            float residue = block_len - db->aln[i].score*block_len/(query_size) ;
-
-            // if(db->aln[i].score>70){
-            //     continue;
-            // }
-
-            printf("%s\t",db->slow5_rec[i]->read_id); // read id name
-            printf("%ld\t%ld\t%ld\t", db->slow5_rec[i]->len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
-            printf("%c\t",db->aln[i].d); // Direction
-            printf("%s\t",core->ref->ref_names[db->aln[i].rid]); // reference sequence name
-            printf("%d\t",core->ref->ref_seq_lengths[db->aln[i].rid]); // reference sequence length
-
-
-            printf("%d\t",db->aln[i].pos_st); // Reference start
-            printf("%d\t",db->aln[i].pos_end); // Reference end
-            printf("%d\t",(int)round(residue)); // Number of residues //todo check this
-            printf("%d\t",(int)round(block_len)); //  Alignment block length //todo check this
-            printf("%d\t",db->aln[i].mapq); // Mapq
-            printf("tp:A:P\t");
-            printf("d1:f:%.2f\t",db->aln[i].score); // distance of the best match
-            printf("d2:f:%.2f\n",db->aln[i].score2); // distance of the second best matcj
-
+           fputs(db->out[i],stdout);
         }
 
     }
+    fflush(stdout);
 
     core->sum_bytes += db->sum_bytes;
     core->total_reads += db->total_reads;
@@ -773,6 +966,7 @@ void free_db_tmp(db_t* db) {
         free(db->current_signal[i]);
         free(db->et[i].event);
         free(db->mem_records[i]);
+        free(db->out[i]); db->out[i]=NULL;
     }
 }
 
@@ -792,6 +986,7 @@ void free_db(db_t* db) {
 
     free(db->et);
     free(db->aln);
+    free(db->out);
     //free(db->scalings);
 
     free(db);

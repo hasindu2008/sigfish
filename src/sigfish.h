@@ -34,6 +34,7 @@
 #define SIGFISH_END 0x020 //map the end of the query
 #define SIGFISH_PRF 0x040 //cpu-profile mode
 #define SIGFISH_ACC 0x080 //accelerator enable
+#define SIGFISH_SAM 0x100 //SAM format
 
 #define SECONDARY_CAP 5 //maximum number of secondary events to print
 
@@ -130,6 +131,11 @@ typedef struct {
 } opt_t;
 
 typedef struct {
+    int32_t start; // index of the event that maps first to the base
+    int32_t stop; // inclusive // index of the event that maps last to the base
+} index_pair_t;
+
+typedef struct {
     int32_t rid;
     int32_t pos_st;
     int32_t pos_end;
@@ -137,6 +143,10 @@ typedef struct {
     float score2;
     char d;
     uint8_t mapq;
+
+    index_pair_t *r2qevent_map;
+    int32_t r2qevent_size;
+
 } aln_t;
 
 /* a batch of read data (dynamic data based on the reads) */
@@ -164,6 +174,9 @@ typedef struct {
 
     //results
     aln_t* aln;
+
+    //result string
+    char **out;
 
     //stats
     int64_t sum_bytes;

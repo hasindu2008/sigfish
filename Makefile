@@ -86,5 +86,5 @@ distclean: clean
 	rm -rf $(BUILD_DIR)/* autom4te.cache
 
 test: $(BINARY)
-	scripts/test.sh
+	test/test.sh
 

@@ -67,7 +67,7 @@ MAPPED_THRSH=100.0
 CORRECT_THRSH=75.0
 
 echo "RNA sequin"
-./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}  || die "Running the DTW failed"
+ex ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}  || die "Running the DTW failed"
 EVALUATE
 
 
