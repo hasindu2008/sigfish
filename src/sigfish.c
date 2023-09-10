@@ -578,9 +578,34 @@ static char *paf_str(aln_t *aln, char *read_id, char *rname, uint64_t start_raw_
     return sp->s;
 }
 
+//todo: so inefficient as it loops through multiple times for RNA - but just to get the functionality
 static char *r2qevent_map_to_ss(aln_t *aln, int64_t qstart, event_table et, int8_t rna){
     index_pair_t *base_to_event_map = aln->r2qevent_map;
     int32_t n_kmers = aln->r2qevent_size;
+
+    if(rna){
+        int end = base_to_event_map[n_kmers-1].stop;
+        assert(end != -1);
+        // for(int i=0; i<n_kmers; i++){
+        //     fprintf(stderr,"%d %d, ",base_to_event_map[i].start,base_to_event_map[i].stop);
+        // }
+        // fprintf(stderr,"\n");
+
+        for(int i=0; i<n_kmers; i++){
+            if(base_to_event_map[i].start != -1){
+                assert(base_to_event_map[i].stop != -1);
+                base_to_event_map[i].start = end - base_to_event_map[i].start;
+                base_to_event_map[i].stop = end - base_to_event_map[i].stop;
+            }
+        }
+
+        // for(int i=0; i<n_kmers; i++){
+        //     fprintf(stderr,"%d %d, ",base_to_event_map[i].start,base_to_event_map[i].stop);
+        // }
+        // fprintf(stderr,"\n");
+
+    }
+
     for(int i=0; i<n_kmers; i++){
         if(base_to_event_map[i].start != -1){
             assert(base_to_event_map[i].stop != -1);
@@ -642,11 +667,11 @@ static char *r2qevent_map_to_ss(aln_t *aln, int64_t qstart, event_table et, int8
             }
             if(j==0) ci = signal_start_point;
             ci += (mi =  signal_start_point - ci);
-            assert(mi>=0);
+            assert(mi>=0); //todo remove assert for performance
             if(mi) sprintf_append(sp,"%dI",(int)mi);
             ci += (mi = signal_end_point-signal_start_point);
 
-            assert(mi>=0);
+            assert(mi>=0); //todo remove assert for performance
             if(mi) {
                 matches++;
                 sprintf_append(sp,"%d,",(int)mi);
@@ -704,7 +729,6 @@ static void aln_to_str(core_t* core,db_t* db, int32_t i){
         char *read_id = db->slow5_rec[i]->read_id;
         char *rname = core->ref->ref_names[db->aln[i].rid];
         int8_t rna = core->opt.flag & SIGFISH_RNA;
-
 
         assert(end_raw_idx <= len_raw_signal);
 
