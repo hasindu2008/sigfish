@@ -457,8 +457,11 @@ static index_pair_t *path_to_map(Path p, int32_t len){
 
     assert(p.k>0);
     int ref_st = p.py[0];
+    int prev_query_idx = -1;
 
     for(int i=0;i<p.k;i++){
+
+        // fprintf(stderr,"%d %d, ",p.py[i],p.px[i]);
 
         int ref_idx = p.py[i]-ref_st;
         int query_idx = p.px[i];
@@ -470,7 +473,18 @@ static index_pair_t *path_to_map(Path p, int32_t len){
         }
         r2qevent_map[ref_idx].stop = query_idx;
 
+        if(prev_query_idx == query_idx){
+            r2qevent_map[ref_idx].start = r2qevent_map[ref_idx].stop = -1;
+        }
+        prev_query_idx = query_idx;
+
     }
+    // fprintf(stderr,"\n");
+    // for(int i=0; i<len; i++){
+    //     fprintf(stderr, "%d %d, ",r2qevent_map[i].start,r2qevent_map[i].stop);
+
+    // }
+    // fprintf(stderr,"\n\n");
 
     return r2qevent_map;
 }
@@ -568,8 +582,11 @@ static char *r2qevent_map_to_ss(aln_t *aln, int64_t qstart, event_table et, int8
     index_pair_t *base_to_event_map = aln->r2qevent_map;
     int32_t n_kmers = aln->r2qevent_size;
     for(int i=0; i<n_kmers; i++){
-        base_to_event_map[i].start += qstart;
-        base_to_event_map[i].stop += qstart;
+        if(base_to_event_map[i].start != -1){
+            assert(base_to_event_map[i].stop != -1);
+            base_to_event_map[i].start += qstart;
+            base_to_event_map[i].stop += qstart;
+        }
     }
 
     //lazily copy pasted from https://github.com/hasindu2008/f5c/blob/master/src/resquiggle.c for now
@@ -625,9 +642,11 @@ static char *r2qevent_map_to_ss(aln_t *aln, int64_t qstart, event_table et, int8
             }
             if(j==0) ci = signal_start_point;
             ci += (mi =  signal_start_point - ci);
+            assert(mi>=0);
             if(mi) sprintf_append(sp,"%dI",(int)mi);
             ci += (mi = signal_end_point-signal_start_point);
 
+            assert(mi>=0);
             if(mi) {
                 matches++;
                 sprintf_append(sp,"%d,",(int)mi);
@@ -673,9 +692,9 @@ static void aln_to_str(core_t* core,db_t* db, int32_t i){
     if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
         // Output of results
         uint64_t start_event_idx =  db->qstart[i];
-        uint64_t end_event_idx =  db->qend[i];
-        assert(start_event_idx>=0 && start_event_idx<=db->et[i].n);
-        assert(end_event_idx>=0 && end_event_idx<=db->et[i].n);
+        uint64_t end_event_idx =  db->qend[i]-1;
+        assert(start_event_idx>=0 && start_event_idx<db->et[i].n);
+        assert(end_event_idx>=0 && end_event_idx<db->et[i].n);
         uint64_t start_raw_idx = db->et[i].event[start_event_idx].start; //inclusive
         uint64_t end_raw_idx = db->et[i].event[end_event_idx].start + db->et[i].event[end_event_idx].length; //exclusive
 
@@ -686,6 +705,8 @@ static void aln_to_str(core_t* core,db_t* db, int32_t i){
         char *rname = core->ref->ref_names[db->aln[i].rid];
         int8_t rna = core->opt.flag & SIGFISH_RNA;
 
+
+        assert(end_raw_idx <= len_raw_signal);
 
         if(core->opt.flag & SIGFISH_SAM){ //can bring duplicate stuff in output_db for paf here
             db->out[i] = sam_str(&db->aln[i], read_id, rname, start_raw_idx , end_raw_idx, query_size, start_event_idx,db->et[i], rna);
