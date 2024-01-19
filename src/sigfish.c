@@ -24,6 +24,59 @@
 
 enum sigfish_log_level_opt _log_level = LOG_VERB;
 
+int8_t drna_detect(slow5_file_t *sp){
+
+    const slow5_hdr_t* hdr = sp->header;
+    int8_t rna = 0;
+    char *exp =slow5_hdr_get("experiment_type", 0, hdr);
+    if(exp==NULL){
+        WARNING("%s","experiment_type not found in SLOW5 header. Assuming genomic_dna");
+        return 0;
+    }
+    if (strcmp(exp,"genomic_dna")==0){
+        rna = 0;
+    }else if (strcmp(exp,"rna")==0){
+        rna = 1;
+    } else {
+        WARNING("Unknown experiment type: %s. Assuming genomic_dna", exp);
+    }
+
+    for(uint32_t  i=1; i < hdr->num_read_groups; i++){
+        char *curr =slow5_hdr_get("experiment_type", i, hdr);
+        if (strcmp(curr, exp)){
+            WARNING("Experiment type mismatch: %s != %s in read group %d. Defaulted to %s", curr, exp, i, exp);
+        }
+    }
+    return rna;
+}
+
+int8_t pore_detect(slow5_file_t *sp){
+
+    const slow5_hdr_t* hdr = sp->header;
+    int8_t pore = 0;
+    char *kit =slow5_hdr_get("sequencing_kit", 0, hdr);
+    if(kit==NULL){
+        WARNING("%s","sequencing_kit not found in SLOW5 header. Assuming R9.4.1");
+        return 0;
+    }
+    if (strstr(kit,"114")!=NULL){
+        pore = 1;
+    } else if (strstr(kit,"rna004")!=NULL){
+        pore = 2;
+    } else {
+        pore = 0;
+    }
+
+    for(uint32_t  i=1; i < hdr->num_read_groups; i++){
+        char *curr =slow5_hdr_get("sequencing_kit", i, hdr);
+        if (strcmp(curr, kit)){
+            WARNING("sequencing_kit type mismatch: %s != %s in read group %d. Defaulted to %s", curr, kit, i, kit);
+        }
+    }
+    return pore;
+}
+
+
 /* initialise the core data structure */
 core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realtime0) {
 
@@ -59,26 +112,53 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         VERBOSE("Error opening SLOW5 file %s\n",slow5file);
         exit(EXIT_FAILURE);
     }
-    drna_mismatch(core->sf, opt.flag & SIGFISH_RNA);
+
+    //drna_mismatch(core->sf, opt.flag & SIGFISH_RNA);
+
+    if(drna_detect(core->sf)) {
+        opt.flag |= SIGFISH_RNA;
+        VERBOSE("%s","Detected RNA data. --rna was set automatically.");
+    }
+
+    if(opt.pore==NULL){
+        int8_t pore = pore_detect(core->sf);
+        if(pore){
+            opt.flag |= SIGFISH_R10;
+            if (pore == 1) VERBOSE("%s","Detected R10 data. --pore r10 was set automatically.");
+            if (pore == 2) VERBOSE("%s","Detected RNA004 data. --pore rna004 was set automatically.");
+            if (pore == 1 && (opt.flag & SIGFISH_RNA)){
+                ERROR("%s","R10 RNA data does not exist! But header header indicates that the data is R10 RNA.");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 
     //model
     core->model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
     MALLOC_CHK(core->model);
-    // core->cpgmodel = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER_METH); //15625 is 4^6 which os hardcoded now
-    // MALLOC_CHK(core->cpgmodel);
 
     //load the model from files
     uint32_t kmer_size=0;
-    //uint32_t kmer_size_meth=0;
     if (opt.model_file) {
         kmer_size=read_model(core->model, opt.model_file, MODEL_TYPE_NUCLEOTIDE);
     } else {
         if(opt.flag & SIGFISH_RNA){
-            INFO("%s","builtin RNA nucleotide model loaded");
-            kmer_size=set_model(core->model, MODEL_ID_RNA_NUCLEOTIDE);
+            if(opt.flag & SIGFISH_R10){
+                INFO("%s","builtin RNA004 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_RNA_RNA004_NUCLEOTIDE);
+            } else {
+                INFO("%s","builtin RNA R9 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_RNA_R9_NUCLEOTIDE);
+            }
         }
         else{
-            kmer_size=set_model(core->model, MODEL_ID_DNA_NUCLEOTIDE);
+            if(opt.flag & SIGFISH_R10){
+                INFO("%s","builtin DNA R10 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_DNA_R10_NUCLEOTIDE);
+            } else{
+                INFO("%s","builtin DNA R9 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_DNA_R9_NUCLEOTIDE);
+            }
         }
     }
     // if (opt.meth_model_file) {
@@ -1042,6 +1122,7 @@ void init_opt(opt_t* opt) {
     memset(opt, 0, sizeof(opt_t));
     opt->batch_size = 512;
     opt->batch_size_bytes = 20*1000*1000;
+    opt->pore = NULL;
     opt->num_thread = 8;
     opt->region_str = NULL; //whole genome processing if null
 

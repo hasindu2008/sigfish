@@ -24,10 +24,10 @@ uint32_t eval_num_kmer(uint32_t kmer_size,uint32_t type){
         num_kmer = (uint32_t)(1 << 2*kmer_size); //num_kmer should be 4^kmer_size
         assert(num_kmer <= MAX_NUM_KMER);
     }
-    else if (type==MODEL_TYPE_METH){
-        num_kmer = (uint32_t)pow(5,kmer_size); //num_kmer should be 5^kmer_size
-        assert(num_kmer <= MAX_NUM_KMER_METH);
-    }
+    // else if (type==MODEL_TYPE_METH){
+    //     num_kmer = (uint32_t)pow(5,kmer_size); //num_kmer should be 5^kmer_size
+    //     assert(num_kmer <= MAX_NUM_KMER_METH);
+    // }
     else {
         assert(0);
     }
@@ -137,7 +137,7 @@ uint32_t set_model(model_t* model, uint32_t model_id) {
     uint32_t num_kmer=0;
     float *inbuilt_model=NULL;
 
-    if(model_id==MODEL_ID_DNA_NUCLEOTIDE){
+    if(model_id==MODEL_ID_DNA_R9_NUCLEOTIDE){
         kmer_size=6;
         num_kmer=4096;
         inbuilt_model=r9_4_450bps_nucleotide_6mer_template_model_builtin_data;
@@ -149,13 +149,22 @@ uint32_t set_model(model_t* model, uint32_t model_id) {
     //     inbuilt_model=r9_4_450bps_cpg_6mer_template_model_builtin_data;
     //     assert(num_kmer == (uint32_t)pow(5,kmer_size)); //num_kmer should be 5^kmer_size
     // }
-    else if(model_id==MODEL_ID_RNA_NUCLEOTIDE){
+    else if(model_id==MODEL_ID_RNA_R9_NUCLEOTIDE){
         kmer_size=5;
         num_kmer=1024;
         inbuilt_model=r9_4_70bps_u_to_t_rna_5mer_template_model_builtin_data;
         assert(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
-    }
-    else{
+    } else if (model_id==MODEL_ID_DNA_R10_NUCLEOTIDE){
+        kmer_size=9;
+        num_kmer=262144;
+        inbuilt_model=r10_4_400bps_nucleotide_9mer_template_model_builtin_data;
+        assert(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
+    } else if (model_id==MODEL_ID_RNA_RNA004_NUCLEOTIDE){
+        kmer_size=9;
+        num_kmer=262144;
+        inbuilt_model=rna004_130bps_u_to_t_rna_9mer_template_model_builtin_data;
+        assert(num_kmer == (uint32_t)(1 << 2*kmer_size)); //num_kmer should be 4^kmer_size
+    } else{
         assert(0);
     }
 

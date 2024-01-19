@@ -12,15 +12,16 @@
 
 //model types
 #define MODEL_TYPE_NUCLEOTIDE 1
-#define MODEL_TYPE_METH 2
+// #define MODEL_TYPE_METH 2
 
-#define MAX_KMER_SIZE 6 //maximum k-mer size
-#define MAX_NUM_KMER 4096   //maximum number of k-mers in nucleotide model
-#define MAX_NUM_KMER_METH 15625 //maximum number of k-mers in methylated model
+#define MAX_KMER_SIZE 9 //maximum k-mer size
+#define MAX_NUM_KMER 262144   //maximum number of k-mers in nucleotide model
 
 //default model IDs
-#define MODEL_ID_DNA_NUCLEOTIDE 1
-#define MODEL_ID_RNA_NUCLEOTIDE 2
+#define MODEL_ID_DNA_R9_NUCLEOTIDE 1
+#define MODEL_ID_RNA_R9_NUCLEOTIDE 2
+#define MODEL_ID_DNA_R10_NUCLEOTIDE 3
+#define MODEL_ID_RNA_RNA004_NUCLEOTIDE 4
 
 /*******************************************************
  * flags related to the user specified options (opt_t) *
@@ -35,6 +36,7 @@
 #define SIGFISH_PRF 0x040 //cpu-profile mode
 #define SIGFISH_ACC 0x080 //accelerator enable
 #define SIGFISH_SAM 0x100 //SAM format
+#define SIGFISH_R10 0x200 //r10
 
 #define SECONDARY_CAP 5 //maximum number of secondary events to print
 
@@ -119,8 +121,10 @@ typedef struct {
     uint32_t flag;              //flags
     int32_t batch_size;         //max reads loaded at once: K
     int64_t batch_size_bytes;   //max bytes loaded at once: B
+    char *pore;
 
     int32_t num_thread; //t
+    int8_t verbosity;
     int32_t debug_break;
 
     char *region_str; //the region string in format chr:start-end

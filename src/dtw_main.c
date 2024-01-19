@@ -39,6 +39,7 @@ static struct option long_options[] = {
     {"profile-cpu",required_argument, 0, 0},       //21 perform section by section (used for profiling - for CPU only)
     {"accel",required_argument, 0, 0},             //22 accelerator
     {"sam", no_argument, 0 , 'a'},                 //23 SAM format
+    {"pore",required_argument, 0, 0},                //24 pore
     {0, 0, 0, 0}};
 
 
@@ -216,6 +217,15 @@ int dtw_main(int argc, char* argv[]) {
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
+        } else if (c==0 && longindex == 24){ //pore
+            opt.pore = optarg;
+            if(!(strcmp(opt.pore,"r9")==0 || strcmp(opt.pore,"r10")==0)){
+                ERROR("%s","Pore model should be r9 or r10");
+                exit(EXIT_FAILURE);
+            }
+            if(strcmp(opt.pore,"r10")==0){
+                opt.flag |= SIGFISH_R10;
+            }
         }
 
     }
