@@ -62,9 +62,9 @@ int8_t pore_detect(slow5_file_t *sp){
     if (strstr(kit,"114")!=NULL){
         pore = OPT_PORE_R9;
     } else if (strstr(kit,"rna004")!=NULL){
-        pore = OPT_PORE_R10;
-    } else {
         pore = OPT_PORE_RNA004;
+    } else {
+        pore = OPT_PORE_R10;
     }
 
     for(uint32_t  i=1; i < hdr->num_read_groups; i++){
