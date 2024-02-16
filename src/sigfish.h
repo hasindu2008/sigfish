@@ -125,6 +125,7 @@ typedef struct {
     int32_t batch_size;         //max reads loaded at once: K
     int64_t batch_size_bytes;   //max bytes loaded at once: B
     char *pore;
+    int8_t pore_flag;
 
     int32_t num_thread; //t
     int8_t verbosity;

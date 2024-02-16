@@ -124,6 +124,7 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         int8_t pore = pore_detect(core->sf);
         if(pore){
             opt.flag |= SIGFISH_R10;
+            opt.pore_flag = pore;
             if (pore == OPT_PORE_R10) VERBOSE("%s","Detected R10 data. --pore r10 was set automatically.");
             if (pore == OPT_PORE_RNA004) VERBOSE("%s","Detected RNA004 data. --pore rna004 was set automatically.");
             if (pore == OPT_PORE_R10 && (opt.flag & SIGFISH_RNA)){
@@ -435,7 +436,7 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
             start_idx =  core->opt.prefix_size;
             if(core->opt.prefix_size < 0){
-                start_idx = detect_query_start(db->slow5_rec[i], db->et[i], core->opt.flag & 3);
+                start_idx = detect_query_start(db->slow5_rec[i], db->et[i], core->opt.pore_flag);
                 if(start_idx < 0){
                     db->prefix_fail++;
                     LOG_TRACE("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);
@@ -1123,6 +1124,7 @@ void init_opt(opt_t* opt) {
     opt->batch_size = 512;
     opt->batch_size_bytes = 20*1000*1000;
     opt->pore = NULL;
+    opt->pore_flag = 0;
     opt->num_thread = 8;
     opt->region_str = NULL; //whole genome processing if null
 
