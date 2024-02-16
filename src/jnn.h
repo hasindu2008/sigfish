@@ -38,6 +38,17 @@ typedef struct {
     .bot = 0, \
 } \
 
+#define JNNV1_CDNA_R9_PARAM { \
+    .std_scale = 0.75, \
+    .corrector = 50, \
+    .seg_dist = 50, \
+    .window = 150, \
+    .stall_len = 0.25, \
+    .error = 5, \
+    .top = 0, \
+    .bot = 0, \
+} \
+
 //relative
 #define JNNV1_R9_POLYA { \
     .std_scale = -1, \
@@ -91,8 +102,8 @@ typedef struct {
 
 jnn_pair_t *jnn_raw(const int16_t *raw, int64_t nsample, jnn_param_t param, int *n);
 jnn_pair_t *jnn_pa(const float *raw, int64_t nsample, jnn_param_t param, int *n);
-jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot);
-jnn_pair_t find_adaptor(slow5_rec_t *rec);
-jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt);
+jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot, int8_t pore);
+jnn_pair_t find_adaptor(slow5_rec_t *rec, int8_t pore);
+jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt, int8_t rna);
 jnn_pair_t jnnv2(const int16_t *sig, int64_t nsample, jnnv2_param_t param);
 #endif

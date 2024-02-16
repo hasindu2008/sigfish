@@ -60,11 +60,11 @@ int8_t pore_detect(slow5_file_t *sp){
         return 0;
     }
     if (strstr(kit,"114")!=NULL){
-        pore = 1;
+        pore = OPT_PORE_R9;
     } else if (strstr(kit,"rna004")!=NULL){
-        pore = 2;
+        pore = OPT_PORE_R10;
     } else {
-        pore = 0;
+        pore = OPT_PORE_RNA004;
     }
 
     for(uint32_t  i=1; i < hdr->num_read_groups; i++){
@@ -124,9 +124,9 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         int8_t pore = pore_detect(core->sf);
         if(pore){
             opt.flag |= SIGFISH_R10;
-            if (pore == 1) VERBOSE("%s","Detected R10 data. --pore r10 was set automatically.");
-            if (pore == 2) VERBOSE("%s","Detected RNA004 data. --pore rna004 was set automatically.");
-            if (pore == 1 && (opt.flag & SIGFISH_RNA)){
+            if (pore == OPT_PORE_R10) VERBOSE("%s","Detected R10 data. --pore r10 was set automatically.");
+            if (pore == OPT_PORE_RNA004) VERBOSE("%s","Detected RNA004 data. --pore rna004 was set automatically.");
+            if (pore == OPT_PORE_R10 && (opt.flag & SIGFISH_RNA)){
                 ERROR("%s","R10 RNA data does not exist! But header header indicates that the data is R10 RNA.");
                 exit(EXIT_FAILURE);
             }
@@ -376,9 +376,9 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
-int64_t detect_query_start(slow5_rec_t *rec, event_table et){
+int64_t detect_query_start(slow5_rec_t *rec, event_table et, int8_t pore){
     int64_t start = -1;
-    jnn_pair_t p=find_adaptor(rec);
+    jnn_pair_t p=find_adaptor(rec, pore);
     int64_t len_raw_signal = rec->len_raw_signal;
     if(p.y > 0){
         assert(p.y<len_raw_signal);
@@ -392,7 +392,7 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
         assert(p.y < len_raw_signal);
 
         float *adapt_end = &current[p.y];
-        jnn_pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
+        jnn_pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20, pore);
 
         uint64_t i = 0;
         if (polya.y > 0){
@@ -435,7 +435,7 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
             start_idx =  core->opt.prefix_size;
             if(core->opt.prefix_size < 0){
-                start_idx = detect_query_start(db->slow5_rec[i], db->et[i]);
+                start_idx = detect_query_start(db->slow5_rec[i], db->et[i], core->opt.flag & 3);
                 if(start_idx < 0){
                     db->prefix_fail++;
                     LOG_TRACE("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);

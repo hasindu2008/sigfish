@@ -43,6 +43,9 @@
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
 
+#define OPT_PORE_R9 0
+#define OPT_PORE_R10 1
+#define OPT_PORE_RNA004 2
 
 //linear segment alignment record
 #define LSAR_TJUMP 'J'      //jump in the target
