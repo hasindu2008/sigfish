@@ -219,11 +219,14 @@ int dtw_main(int argc, char* argv[]) {
         #endif
         } else if (c==0 && longindex == 24){ //pore
             opt.pore = optarg;
-            if(!(strcmp(opt.pore,"r9")==0 || strcmp(opt.pore,"r10")==0)){
-                ERROR("%s","Pore model should be r9 or r10");
+            if(!(strcmp(opt.pore,"r9")==0 || strcmp(opt.pore,"r10")==0) || strcmp(opt.pore,"rna004")==0){
+                ERROR("%s","Pore model should be r9, r10 or rna004");
                 exit(EXIT_FAILURE);
             }
             if(strcmp(opt.pore,"r10")==0){
+                opt.flag |= SIGFISH_R10;
+            } else if (strcmp(opt.pore,"rna004")==0){
+                opt.flag |= SIGFISH_RNA;
                 opt.flag |= SIGFISH_R10;
             }
         }
