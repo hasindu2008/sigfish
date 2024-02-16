@@ -178,7 +178,7 @@ jnn_pair_t jnnv2(const int16_t *sig, int64_t nsample, jnnv2_param_t param){
 }
 
 jnn_pair_t find_adaptor(slow5_rec_t *rec){
-    jnnv2_param_t param = JNNV2_RNA_ADAPTOR;
+    jnnv2_param_t param = JNNV2_RNA_R9_ADAPTOR;
     return jnnv2(rec->raw_signal, rec->len_raw_signal, param);
 }
 
@@ -304,7 +304,7 @@ jnn_pair_t *jnn_pa(const float *raw, int64_t nsample, jnn_param_t param, int *n)
 jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt){
 
     int seg_i = 0;
-    jnn_param_t param = JNNV1_PARAM;
+    jnn_param_t param = JNNV1_R9_PARAM;
     jnn_pair_t *segs = jnn_raw(rec->raw_signal,rec->len_raw_signal,param,&seg_i);
     jnn_pair_t p = {-1,-1};
 
@@ -340,7 +340,7 @@ jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt){
 jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot){
     jnn_pair_t p = {-1,-1};
     int seg_i = 0;
-    jnn_param_t param = JNNV1_POLYA;
+    jnn_param_t param = JNNV1_R9_POLYA;
     param.top = top;
     param.bot = bot;
     jnn_pair_t *segs = jnn_pa(raw,nsample,param,&seg_i);
