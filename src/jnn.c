@@ -13,6 +13,8 @@
 #include "jnn.h"
 #include "stat.h"
 
+#include "sigfish.h"
+
 #define OUTLIER_MAX 1200
 #define OUTLIER_MIN 0
 
@@ -177,8 +179,12 @@ jnn_pair_t jnnv2(const int16_t *sig, int64_t nsample, jnnv2_param_t param){
 
 }
 
-jnn_pair_t find_adaptor(slow5_rec_t *rec){
-    jnnv2_param_t param = JNNV2_RNA_ADAPTOR;
+jnn_pair_t find_adaptor(slow5_rec_t *rec, int8_t pore){
+    jnnv2_param_t param = JNNV2_RNA_R9_ADAPTOR;
+    if(pore == OPT_PORE_RNA004){
+        jnnv2_param_t tmp = JNNV2_RNA_RNA004_ADAPTOR;
+        param = tmp;
+    }
     return jnnv2(rec->raw_signal, rec->len_raw_signal, param);
 }
 
@@ -301,10 +307,18 @@ jnn_pair_t *jnn_pa(const float *raw, int64_t nsample, jnn_param_t param, int *n)
 }
 
 
-jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt){
+jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt,  int8_t rna) {
 
     int seg_i = 0;
-    jnn_param_t param = JNNV1_PARAM;
+    jnn_param_t param;
+    if (rna) {
+        jnn_param_t tmp = JNNV1_DRNA_R9_PARAM;
+        param = tmp;
+    } else {
+        jnn_param_t tmp =  JNNV1_CDNA_R9_PARAM;
+        param = tmp;
+    }
+
     jnn_pair_t *segs = jnn_raw(rec->raw_signal,rec->len_raw_signal,param,&seg_i);
     jnn_pair_t p = {-1,-1};
 
@@ -337,10 +351,16 @@ jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt){
 
 }
 
-jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot){
+jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot, int8_t pore) {
     jnn_pair_t p = {-1,-1};
     int seg_i = 0;
-    jnn_param_t param = JNNV1_POLYA;
+
+    jnn_param_t param = JNNV1_R9_POLYA;
+    if (pore == OPT_PORE_RNA004) {
+        jnn_param_t tmp = JNNV1_RNA004_POLYA;
+        param = tmp;
+    }
+
     param.top = top;
     param.bot = bot;
     jnn_pair_t *segs = jnn_pa(raw,nsample,param,&seg_i);
