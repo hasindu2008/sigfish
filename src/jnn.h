@@ -27,7 +27,7 @@ typedef struct {
 } jnn_param_t;
 
 
-#define JNNV1_R9_PARAM { \
+#define JNNV1_DRNA_R9_PARAM { \
     .std_scale = 0.75, \
     .corrector = 50, \
     .seg_dist = 50, \

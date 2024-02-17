@@ -310,7 +310,7 @@ jnn_pair_t *jnn_pa(const float *raw, int64_t nsample, jnn_param_t param, int *n)
 jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt,  int8_t rna) {
 
     int seg_i = 0;
-    
+    jnn_param_t param;
     if (rna) {
         jnn_param_t tmp = JNNV1_DRNA_R9_PARAM;
         param = tmp;
