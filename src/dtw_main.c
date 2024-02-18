@@ -60,7 +60,7 @@ static inline int64_t mm_parse_num(const char* str) //taken from minimap2
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: sigfish dtw [OPTIONS] genome.fa reads.blow5\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -w STR                     limit processing to a genomic region specified as chr:start-end or a list of regions in a .bed file\n");
+    //fprintf(fp_help,"   -w STR                     limit processing to a genomic region specified as chr:start-end or a list of regions in a .bed file\n");
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -79,7 +79,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --profile-cpu=yes|no       process section by section (used for profiling on CPU)\n");
     fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
     fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
-    fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
+    //fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
     fprintf(fp_help,"   --full-ref                 map to the full reference\n");
     fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning\n");
     fprintf(fp_help,"   --sam                      Output in SAM format\n");
