@@ -574,7 +574,7 @@ static index_pair_t *path_to_map(Path p, int32_t len){
 
 
 
-void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float *cost, int32_t qlen, int32_t rlen){
+void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float *cost, int32_t qlen, int32_t rlen, int8_t backtrace){
     int l=0;
     for(; l<SECONDARY_CAP; l++){
         if (score > aln[l].score){
@@ -597,31 +597,36 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
         aln[l-1].rid = rid;
         aln[l-1].d = d;
 
-        Path p;
-        if(subsequence_path(cost, qlen, rlen, pos, &p)){
-            if(p.k<=0){
-                fprintf(stderr,"Could not find path as size is 0\n");
-                aln[l-1].pos_st = -1;
-            }else{
-                aln[l-1].pos_st = p.py[0];
-                if(p.py[p.k-1] != pos){
-                    fprintf(stderr,"Some shit happened in the backtracking\n");
-                    fprintf(stderr,"%d %d %d %d %d\n",qlen,rlen,pos,aln[l-1].pos_st,p.py[p.k-1]);
+        if(backtrace){
+            Path p;
+            if(subsequence_path(cost, qlen, rlen, pos, &p)){
+                if(p.k<=0){
+                    fprintf(stderr,"Could not find path as size is 0\n");
+                    aln[l-1].pos_st = -1;
+                }else{
+                    aln[l-1].pos_st = p.py[0];
+                    if(p.py[p.k-1] != pos){
+                        fprintf(stderr,"Some shit happened in the backtracking\n");
+                        fprintf(stderr,"%d %d %d %d %d\n",qlen,rlen,pos,aln[l-1].pos_st,p.py[p.k-1]);
+                    }
+
+                    int len = aln[l-1].pos_end - aln[l-1].pos_st + 1;
+                    ASSERT(len >= 0);
+                    aln[l-1].r2qevent_size = len;
+                    aln[l-1].r2qevent_map = path_to_map(p, len);
+
                 }
 
-                int len = aln[l-1].pos_end - aln[l-1].pos_st + 1;
-                ASSERT(len >= 0);
-                aln[l-1].r2qevent_size = len;
-                aln[l-1].r2qevent_map = path_to_map(p, len);
-
+                free(p.px);
+                free(p.py);
             }
-
-            free(p.px);
-            free(p.py);
-        }
-        else {
-            fprintf(stderr,"Could not find path. %d %d %d\n",qlen,rlen,pos);
-            aln[l-1].pos_st = -1;
+            else {
+                fprintf(stderr,"Could not find path. %d %d %d\n",qlen,rlen,pos);
+                aln[l-1].pos_st = -1;
+            }
+        } else {
+            aln[l-1].r2qevent_size = 0;
+            aln[l-1].r2qevent_map = NULL;
         }
 
     }
@@ -929,7 +934,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                     float min_score = INFINITY;
                     int32_t min_pos = -1;
                     update_min(&min_pos, &min_score, cost, qlen, rlen, k);
-                    update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen);
+                    update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen, 1);
                 }
 
                 // for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
@@ -946,7 +951,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
             else{
                 std_dtw(query, core->ref->forward[j], qlen , rlen, cost, 0);
                 int k=qlen*rlen-1;
-                update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+', cost, qlen, rlen);
+                update_aln(aln, cost[k], j, k-(qlen-1)*rlen, '+', cost, qlen, rlen, 1);
                 // if(cost[k]<score){
                 //     score2=score;
                 //     score = cost[k];
@@ -976,7 +981,7 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
                             min_pos = m+k;
                         }
                     }
-                    update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '-', cost, qlen, rlen);
+                    update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '-', cost, qlen, rlen, 1);
                 }
 
                 // for(int k=(qlen-1)*rlen; k< qlen*rlen; k++){
@@ -1367,7 +1372,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
                 float min_score = INFINITY;
                 int32_t min_pos = -1;
                 update_min(&min_pos, &min_score, cost, qlen, rlen, k);
-                update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen);
+                update_aln(aln, min_score, j, min_pos-(qlen-1)*rlen, '+', cost, qlen, rlen, 0);
             }
             free(cost);
         }
