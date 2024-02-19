@@ -21,6 +21,25 @@ ex() {
     fi
 }
 
+handle_tests() {
+	numfailed=$(wc -l < diff.txt)
+	numcases=$(wc -l < ${ORIG})
+	numres=$(wc -l < ${RES})
+	echo "$numfailed of $numcases test cases deviated."
+	missing=$(echo "$numcases-$numres" | bc)
+	echo "$missing entries in the truthset are missing in the testset"
+	failp=$(echo "$numfailed*100/$numcases" | bc)
+	[ "$failp" -gt ${THRESH} ] && die "${1}: Validation failed"
+	echo "Validation passed"
+}
+
+execute_test() {
+	ORIG=$1
+	RES=$2
+	THRESH=$3
+	diff -y --suppress-common-lines ${ORIG} ${RES} > diff.txt || handle_tests $testdir
+}
+
 EVALUATE(){
     ex ./sigfish eval ${REF_PAF} ${MY_PAF} > $EVAL || die "Running the tool failed"
     MAPPED=$(grep -w "mapped_testset" $EVAL | head -1 | awk '{print $3}' | tr -d '(%)' )
@@ -46,6 +65,8 @@ THREADS=8
 
 make
 
+# dtw
+
 REF=test/nCoV-2019.reference.fasta
 BLOW5=test/sp1_dna.blow5
 REF_PAF=test/sp1_dna.minimap2.paf
@@ -70,6 +91,34 @@ echo "RNA sequin"
 ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}  || die "Running the DTW failed"
 EVALUATE
 
+# real
+
+REF=test/rnasequin_sequences_2.4.fa
+BLOW5=test/sequin_rna.blow5
+
+echo "DNA real jnn+dtw single-thread"
+ex ./sigfish real ${REF} ${BLOW5} -t 1 > test/jnn_dtw_real_dna.txt || die "Running the DTW failed"
+execute_test test/jnn_dtw_real_dna.txt test/jnn_dna.exp 5 || die "diff failed"
+
+echo "DNA real jnn+dtw multi-thread"
+ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > test/jnn_dtw_real_dna.txt || die "Running the DTW failed"
+execute_test test/jnn_dtw_real_dna.txt test/jnn_dna.exp 5 || die "diff failed"
+
+echo "RNA real jnn+dtw multi-thread"
+ex ./sigfish real ${REF} ${BLOW5} -t 1 > test/jnn_dtw_real_rna.txt || die "Running the DTW failed"
+execute_test test/jnn_dtw_real_dna.txt test/jnn_rna.exp 20 || die "diff failed"
+
+echo "RNA real jnn+dtw multi-thread"
+ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > test/jnn_dtw_real_rna.txt || die "Running the DTW failed"
+execute_test test/jnn_dtw_real_rna.txt test/jnn_rna.exp 20 || die "diff failed"
+
+echo "DNA real jnn"
+ex ./sigfish real test/sp1_dna.blow5 > test/jnn_real_dna.txt || die "Running the tool failed"
+execute_test test/jnn_real_dna.txt test/prefix_dna.exp 5
+
+echo "RNA real jnn"
+ex ./sigfish real test/sequin_rna.blow5 > test/jnn_real_rna.txt || die "Running the tool failed"
+execute_test test/jnn_real_rna.txt test/prefix_rna.exp 20 || die "diff failed"
 
 echo "*******************************************************"
 echo "Tests passed"
