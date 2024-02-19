@@ -50,7 +50,7 @@ int8_t drna_detect(slow5_file_t *sp){
     return rna;
 }
 
-int8_t pore_detect(slow5_file_t *sp){
+int8_t pore_detect(slow5_file_t *sp) {
 
     const slow5_hdr_t* hdr = sp->header;
     int8_t pore = 0;
@@ -1193,8 +1193,14 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
     state->t = (jnnv3_pstate_t **)calloc(num_channels,sizeof(jnnv3_pstate_t *));
     MALLOC_CHK(state->t);
 
-    const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
-    const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+    jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+    jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+    if (opt.pore == OPT_PORE_RNA004) {
+        jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+        param = atmp;
+        jnnv3_pparam_t ptmp = JNNV3_RNA004_POLYA;
+        pparam = ptmp;
+    }
 
     for(int i=0;i<num_channels;i++){
         state->reads[i].c_raw_signal = 10000;
@@ -1451,8 +1457,14 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
             jnnv3_astate_t *s = state->s[channel];
             jnnv3_pstate_t *t = state->t[channel];
 
-            const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
-            const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+            jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+            jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+            if (state->opt.pore == OPT_PORE_RNA004) {
+                jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+                param = atmp;
+                jnnv3_pparam_t ptmp = JNNV3_RNA004_POLYA;
+                pparam = ptmp;
+            }
 
             if (s->top == 0){ //enough chunks arrived
                 LOG_TRACE("%s","Enough chunks, start to detect adaptor");
@@ -1553,8 +1565,17 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
         }
         jnnv3_astate_t *s = state->s[channel];
         jnnv3_pstate_t *t = state->t[channel];
-        const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
-        const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+
+        jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+        jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+        if (state->opt.pore == OPT_PORE_RNA004) {
+            jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+            param = atmp;
+            jnnv3_pparam_t ptmp = JNNV3_RNA004_POLYA;
+            pparam = ptmp;
+        }
+
+
         reset_jnnv3_astate(s,param);
         reset_jnnv3_pstate(t,pparam);
         if(r->c_raw_signal < read_batch[i].len_raw_signal){

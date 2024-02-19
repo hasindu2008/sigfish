@@ -26,6 +26,15 @@ typedef struct {
     .min_seg_len = 4000, \
 } \
 
+#define JNNV3_RNA004_ADAPTOR { \
+    .std_scale = 0.9, \
+    .corrector = 1200, \
+    .seg_dist = 1800, \
+    .window = 300, \
+    .error = 5, \
+    .min_seg_len = 4000, \
+} \
+
 typedef struct jnnv3_astate_s {
 
     int8_t prev;  // previous string
@@ -68,6 +77,14 @@ typedef struct {
 
 //dRNA realtime polyA parameters
 #define JNNV3_R9_POLYA { \
+    .corrector = 50, \
+    .seg_dist = 200, \
+    .window = 250, \
+    .stall_len = 1.0, \
+    .error = 30, \
+} \
+
+#define JNNV3_RNA004_POLYA { \
     .corrector = 50, \
     .seg_dist = 200, \
     .window = 250, \

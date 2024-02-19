@@ -13,6 +13,7 @@ int main(){
     opt.dtw_cutoff = 70.0;
     opt.query_size_events = 250;
     opt.query_size_sig = 6000;
+    opt.pore = 0;
 
     sigfish_state_t *state = init_sigfish(NULL, CHANNELS, opt);
     sigfish_read_t reads[CHANNELS];

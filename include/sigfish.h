@@ -284,6 +284,7 @@ typedef struct{
     float dtw_cutoff;
     int query_size_sig;
     int query_size_events;
+    int8_t pore;
 } sigfish_opt_t;
 
 typedef struct{
@@ -384,5 +385,6 @@ void free_sigfish(sigfish_state_t *state);
 enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size);
 aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp, sigfish_opt_t opt);
 void work_rt(sigfish_state_t* state, sigfish_read_t * db, void (*func)(sigfish_state_t*,sigfish_read_t*,int));
+int8_t pore_detect(slow5_file_t *sp);
 
 #endif
