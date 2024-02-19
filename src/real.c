@@ -176,7 +176,7 @@ int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
         ASSERT(ref_name != NULL);
         model_t *pore_model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
         MALLOC_CHK(pore_model);
-        uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
+        uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_R9_NUCLEOTIDE);
         uint32_t flag = 0;
         flag |= SIGFISH_RNA;
         int32_t query_size = opt.query_size_events;

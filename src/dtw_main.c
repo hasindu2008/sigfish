@@ -36,7 +36,9 @@ static struct option long_options[] = {
     {"full-ref", no_argument, 0, 0},               //19 Map to full reference instead of a segment
     {"from-end", no_argument, 0, 0},               //20 Map the end portion of the query
     {"profile-cpu",required_argument, 0, 0},       //21 perform section by section (used for profiling - for CPU only)
-    {"accel",required_argument, 0, 0},             //22 perform section by section (used for profiling - for CPU only)
+    {"accel",required_argument, 0, 0},             //22 accelerator
+    {"sam", no_argument, 0 , 'a'},                 //23 SAM format
+    {"pore",required_argument, 0, 0},                //24 pore
     {0, 0, 0, 0}};
 
 
@@ -57,7 +59,7 @@ static inline int64_t mm_parse_num(const char* str) //taken from minimap2
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: sigfish dtw [OPTIONS] genome.fa reads.blow5\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -w STR                     limit processing to a genomic region specified as chr:start-end or a list of regions in a .bed file\n");
+    //fprintf(fp_help,"   -w STR                     limit processing to a genomic region specified as chr:start-end or a list of regions in a .bed file\n");
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -65,6 +67,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
+    fprintf(fp_help,"   --pore STR                 set the pore chemistry (r9, r10 or rna004) [auto]");
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --kmer-model FILE          custom nucleotide k-mer model file (format similar to test/r9-models/r9.4_450bps.nucleotide.6mer.template.model)\n");
@@ -75,9 +78,10 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --profile-cpu=yes|no       process section by section (used for profiling on CPU)\n");
     fprintf(fp_help,"   --dtw-std                  use DTW standard instead of DTW subsequence\n");
     fprintf(fp_help,"   --invert                   reverse the reference events instead of query\n");
-    fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
+    //fprintf(fp_help,"   --secondary STR            print secondary mappings. yes or no [%s]\n",(opt.flag&SIGFISH_SEC)?"yes":"no");
     fprintf(fp_help,"   --full-ref                 map to the full reference\n");
     fprintf(fp_help,"   --from-end                 Map the end portion of the query instead of the beginning\n");
+    fprintf(fp_help,"   --sam                      Output in SAM format\n");
 #ifdef HAVE_ACC
     fprintf(fp_help,"   --accel=yes|no             Running on accelerator [%s]\n",(opt.flag&SIGFISH_ACC?"yes":"no"));
 #endif
@@ -110,6 +114,12 @@ static inline void yes_or_no(opt_t* opt, uint64_t flag, int long_idx,
     }
 }
 
+static void sam_hdr_wr(refsynth_t *ref) {
+    for(int i=0; i<ref->num_ref; i++) {
+        fprintf(stdout, "@SQ\tSN:%s\tLN:%ld\n", ref->ref_names[i], (long)ref->ref_lengths[i]);
+    }
+    fprintf(stdout, "@PG\tID:sigfish\tPN:sigfish\tVN:%s\n", SIGFISH_VERSION);
+}
 
 int dtw_main(int argc, char* argv[]) {
 
@@ -117,7 +127,7 @@ int dtw_main(int argc, char* argv[]) {
 
     //signal(SIGSEGV, sig_handler);
 
-    const char* optstring = "p:q:t:B:K:v:o:w:hV";
+    const char* optstring = "p:q:t:B:K:v:o:w:ahV";
 
     int longindex = 0;
     int32_t c = -1;
@@ -183,6 +193,8 @@ int dtw_main(int argc, char* argv[]) {
 					exit(EXIT_FAILURE);
 				}
 			}
+        } else if (c=='a'){
+            yes_or_no(&opt, SIGFISH_SAM, longindex, "yes", 1);
         } else if (c == 0 && longindex == 12){ //if RNA
             yes_or_no(&opt, SIGFISH_RNA, longindex, "yes", 1);
         } else if(c == 0 && longindex == 15){ //debug break
@@ -205,6 +217,18 @@ int dtw_main(int argc, char* argv[]) {
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
+        } else if (c==0 && longindex == 24){ //pore
+            opt.pore = optarg;
+            if(!(strcmp(opt.pore,"r9")==0 || strcmp(opt.pore,"r10")==0) || strcmp(opt.pore,"rna004")==0){
+                ERROR("%s","Pore model should be r9, r10 or rna004");
+                exit(EXIT_FAILURE);
+            }
+            if(strcmp(opt.pore,"r10")==0){
+                opt.flag |= SIGFISH_R10;
+            } else if (strcmp(opt.pore,"rna004")==0){
+                opt.flag |= SIGFISH_RNA;
+                opt.flag |= SIGFISH_R10;
+            }
         }
 
     }
@@ -266,6 +290,10 @@ int dtw_main(int argc, char* argv[]) {
 
     //initialise a databatch
     db_t* db = init_db(core);
+
+    if(core->opt.flag & SIGFISH_SAM){
+        sam_hdr_wr(core->ref);
+    }
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {

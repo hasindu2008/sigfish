@@ -24,6 +24,59 @@
 
 enum sigfish_log_level_opt _log_level = LOG_VERB;
 
+int8_t drna_detect(slow5_file_t *sp){
+
+    const slow5_hdr_t* hdr = sp->header;
+    int8_t rna = 0;
+    char *exp =slow5_hdr_get("experiment_type", 0, hdr);
+    if(exp==NULL){
+        WARNING("%s","experiment_type not found in SLOW5 header. Assuming genomic_dna");
+        return 0;
+    }
+    if (strcmp(exp,"genomic_dna")==0){
+        rna = 0;
+    }else if (strcmp(exp,"rna")==0){
+        rna = 1;
+    } else {
+        WARNING("Unknown experiment type: %s. Assuming genomic_dna", exp);
+    }
+
+    for(uint32_t  i=1; i < hdr->num_read_groups; i++){
+        char *curr =slow5_hdr_get("experiment_type", i, hdr);
+        if (strcmp(curr, exp)){
+            WARNING("Experiment type mismatch: %s != %s in read group %d. Defaulted to %s", curr, exp, i, exp);
+        }
+    }
+    return rna;
+}
+
+int8_t pore_detect(slow5_file_t *sp){
+
+    const slow5_hdr_t* hdr = sp->header;
+    int8_t pore = 0;
+    char *kit =slow5_hdr_get("sequencing_kit", 0, hdr);
+    if(kit==NULL){
+        WARNING("%s","sequencing_kit not found in SLOW5 header. Assuming R9.4.1");
+        return 0;
+    }
+    if (strstr(kit,"114")!=NULL){
+        pore = OPT_PORE_R10;
+    } else if (strstr(kit,"rna004")!=NULL){
+        pore = OPT_PORE_RNA004;
+    } else {
+        pore = OPT_PORE_R9;
+    }
+
+    for(uint32_t  i=1; i < hdr->num_read_groups; i++){
+        char *curr =slow5_hdr_get("sequencing_kit", i, hdr);
+        if (strcmp(curr, kit)){
+            WARNING("sequencing_kit type mismatch: %s != %s in read group %d. Defaulted to %s", curr, kit, i, kit);
+        }
+    }
+    return pore;
+}
+
+
 /* initialise the core data structure */
 core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realtime0) {
 
@@ -59,26 +112,54 @@ core_t* init_core(const char *fastafile, char *slow5file, opt_t opt,double realt
         VERBOSE("Error opening SLOW5 file %s\n",slow5file);
         exit(EXIT_FAILURE);
     }
-    drna_mismatch(core->sf, opt.flag & SIGFISH_RNA);
+
+    //drna_mismatch(core->sf, opt.flag & SIGFISH_RNA);
+
+    if(drna_detect(core->sf)) {
+        opt.flag |= SIGFISH_RNA;
+        VERBOSE("%s","Detected RNA data. --rna was set automatically.");
+    }
+
+    if(opt.pore==NULL){
+        int8_t pore = pore_detect(core->sf);
+        if(pore){
+            opt.flag |= SIGFISH_R10;
+            opt.pore_flag = pore;
+            if (pore == OPT_PORE_R10) VERBOSE("%s","Detected R10 data. --pore r10 was set automatically.");
+            if (pore == OPT_PORE_RNA004) VERBOSE("%s","Detected RNA004 data. --pore rna004 was set automatically.");
+            if (pore == OPT_PORE_R10 && (opt.flag & SIGFISH_RNA)){
+                ERROR("%s","R10 RNA data does not exist! But header header indicates that the data is R10 RNA.");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 
     //model
     core->model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
     MALLOC_CHK(core->model);
-    // core->cpgmodel = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER_METH); //15625 is 4^6 which os hardcoded now
-    // MALLOC_CHK(core->cpgmodel);
 
     //load the model from files
     uint32_t kmer_size=0;
-    //uint32_t kmer_size_meth=0;
     if (opt.model_file) {
         kmer_size=read_model(core->model, opt.model_file, MODEL_TYPE_NUCLEOTIDE);
     } else {
         if(opt.flag & SIGFISH_RNA){
-            INFO("%s","builtin RNA nucleotide model loaded");
-            kmer_size=set_model(core->model, MODEL_ID_RNA_NUCLEOTIDE);
+            if(opt.flag & SIGFISH_R10){
+                INFO("%s","builtin RNA004 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_RNA_RNA004_NUCLEOTIDE);
+            } else {
+                INFO("%s","builtin RNA R9 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_RNA_R9_NUCLEOTIDE);
+            }
         }
         else{
-            kmer_size=set_model(core->model, MODEL_ID_DNA_NUCLEOTIDE);
+            if(opt.flag & SIGFISH_R10){
+                INFO("%s","builtin DNA R10 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_DNA_R10_NUCLEOTIDE);
+            } else{
+                INFO("%s","builtin DNA R9 nucleotide model loaded");
+                kmer_size=set_model(core->model, MODEL_ID_DNA_R9_NUCLEOTIDE);
+            }
         }
     }
     // if (opt.meth_model_file) {
@@ -173,6 +254,9 @@ db_t* init_db(core_t* core) {
 
     db->aln = (aln_t *)malloc(sizeof(aln_t) * db->capacity_rec);
     MALLOC_CHK(db->et);
+
+    db->out = (char **)calloc(db->capacity_rec, sizeof(char *));
+    MALLOC_CHK(db->out);
 
     db->qstart = (int64_t *)malloc(sizeof(int64_t) * db->capacity_rec);
     MALLOC_CHK(db->qstart);
@@ -293,9 +377,9 @@ void event_single(core_t* core,db_t* db, int32_t i) {
 
 }
 
-int64_t detect_query_start(slow5_rec_t *rec, event_table et){
+int64_t detect_query_start(slow5_rec_t *rec, event_table et, int8_t pore){
     int64_t start = -1;
-    jnn_pair_t p=find_adaptor(rec);
+    jnn_pair_t p=find_adaptor(rec, pore);
     int64_t len_raw_signal = rec->len_raw_signal;
     if(p.y > 0){
         ASSERT(p.y<len_raw_signal);
@@ -309,7 +393,7 @@ int64_t detect_query_start(slow5_rec_t *rec, event_table et){
         ASSERT(p.y < len_raw_signal);
 
         float *adapt_end = &current[p.y];
-        jnn_pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20);
+        jnn_pair_t polya = find_polya(adapt_end,len_raw_signal-p.y, m_a+30+20,m_a+30-20, pore);
 
         uint64_t i = 0;
         if (polya.y > 0){
@@ -373,7 +457,7 @@ void normalise_single(core_t* core,db_t* db, int32_t i) {
 
             start_idx =  core->opt.prefix_size;
             if(core->opt.prefix_size < 0){
-                start_idx = detect_query_start(db->slow5_rec[i], db->et[i]);
+                start_idx = detect_query_start(db->slow5_rec[i], db->et[i], core->opt.pore_flag);
                 if(start_idx < 0){
                     db->prefix_fail++;
                     LOG_TRACE("Autodetect query start failed for %s",db->slow5_rec[i]->read_id);
@@ -431,12 +515,64 @@ aln_t *init_aln(){
     int32_t rid = -1;
     char d = 0;
     for (int l=0; l<SECONDARY_CAP;l++) {
-        aln_t tmp = {rid,pos,pos,score,score2,d,0};
+        aln_t tmp = {rid,pos,pos,score,score2,d,0,NULL,0};
         aln[l] = tmp;
     }
-
     return aln;
 }
+
+void free_aln(aln_t *aln){
+    for (int l=0; l<SECONDARY_CAP;l++) {
+        free(aln[l].r2qevent_map);
+    }
+    free(aln);
+}
+
+
+static index_pair_t *path_to_map(Path p, int32_t len){
+
+    index_pair_t *r2qevent_map = (index_pair_t *)malloc(sizeof(index_pair_t)*len);
+    MALLOC_CHK(r2qevent_map);
+    for(int i=0; i<len; i++){
+        r2qevent_map[i].start = -1;
+        r2qevent_map[i].stop = -1;
+    }
+
+    ASSERT(p.k>0);
+    int ref_st = p.py[0];
+    int prev_query_idx = -1;
+
+    for(int i=0;i<p.k;i++){
+
+        // fprintf(stderr,"%d %d, ",p.py[i],p.px[i]);
+
+        int ref_idx = p.py[i]-ref_st;
+        int query_idx = p.px[i];
+
+        ASSERT(ref_idx<len);
+
+        if(r2qevent_map[ref_idx].start == -1){
+            r2qevent_map[ref_idx].start = query_idx;
+        }
+        r2qevent_map[ref_idx].stop = query_idx;
+
+        if(prev_query_idx == query_idx){
+            r2qevent_map[ref_idx].start = r2qevent_map[ref_idx].stop = -1;
+        }
+        prev_query_idx = query_idx;
+
+    }
+    // fprintf(stderr,"\n");
+    // for(int i=0; i<len; i++){
+    //     fprintf(stderr, "%d %d, ",r2qevent_map[i].start,r2qevent_map[i].stop);
+
+    // }
+    // fprintf(stderr,"\n\n");
+
+    return r2qevent_map;
+}
+
+
 
 void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float *cost, int32_t qlen, int32_t rlen){
     int l=0;
@@ -449,6 +585,10 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
     }
 
     if(l!=0){
+        if(aln[0].r2qevent_size){
+            aln[0].r2qevent_size=0;
+            free(aln[0].r2qevent_map);
+        }
         for(int m=0;m<l-1;m++){
             aln[m] = aln[m+1];
         }
@@ -465,11 +605,17 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
             }else{
                 aln[l-1].pos_st = p.py[0];
                 if(p.py[p.k-1] != pos){
-                    fprintf(stderr,"SOme shit happened in the backtracking\n");
+                    fprintf(stderr,"Some shit happened in the backtracking\n");
                     fprintf(stderr,"%d %d %d %d %d\n",qlen,rlen,pos,aln[l-1].pos_st,p.py[p.k-1]);
                 }
 
+                int len = aln[l-1].pos_end - aln[l-1].pos_st + 1;
+                ASSERT(len >= 0);
+                aln[l-1].r2qevent_size = len;
+                aln[l-1].r2qevent_map = path_to_map(p, len);
+
             }
+
             free(p.px);
             free(p.py);
         }
@@ -479,7 +625,174 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
         }
 
     }
+}
 
+static char *paf_str(aln_t *aln, char *read_id, char *rname, uint64_t start_raw_idx , uint64_t end_raw_idx, uint64_t query_size, int8_t rna, uint64_t len_raw_signal, uint64_t rlength){
+
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, 4000);
+
+    float block_len = aln->pos_end - aln->pos_st;
+    float residue = block_len -aln->score*block_len/(query_size) ;
+
+    // if(db->aln[i].score>70){
+    //     continue;
+    // }
+
+    sprintf_append(sp, "%s\t",read_id); // read id name
+    sprintf_append(sp, "%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+    sprintf_append(sp, "%c\t",aln->d); // Direction
+    sprintf_append(sp, "%s\t",rname); // reference sequence name
+    sprintf_append(sp, "%d\t",rlength); // reference sequence length
+
+
+    sprintf_append(sp, "%d\t",aln->pos_st); // Reference start
+    sprintf_append(sp, "%d\t",aln->pos_end); // Reference end
+    sprintf_append(sp, "%d\t",(int)round(residue)); // Number of residues //todo check this
+    sprintf_append(sp, "%d\t",(int)round(block_len)); //  Alignment block length //todo check this
+    sprintf_append(sp, "%d\t",aln->mapq); // Mapq
+    sprintf_append(sp, "tp:A:P\t");
+    sprintf_append(sp, "d1:f:%.2f\t",aln->score); // distance of the best match
+    sprintf_append(sp, "d2:f:%.2f",aln->score2); // distance of the second best matcj
+
+    sprintf_append(sp, "\n");
+    str.s[str.l] = '\0';
+    return sp->s;
+}
+
+//todo: so inefficient as it loops through multiple times for RNA - but just to get the functionality
+static char *r2qevent_map_to_ss(aln_t *aln, int64_t qstart, event_table et, int8_t rna){
+    index_pair_t *base_to_event_map = aln->r2qevent_map;
+    int32_t n_kmers = aln->r2qevent_size;
+
+    if(rna){
+        int end = base_to_event_map[n_kmers-1].stop;
+        ASSERT(end != -1);
+        // for(int i=0; i<n_kmers; i++){
+        //     fprintf(stderr,"%d %d, ",base_to_event_map[i].start,base_to_event_map[i].stop);
+        // }
+        // fprintf(stderr,"\n");
+
+        for(int i=0; i<n_kmers; i++){
+            if(base_to_event_map[i].start != -1){
+                ASSERT(base_to_event_map[i].stop != -1);
+                base_to_event_map[i].start = end - base_to_event_map[i].start;
+                base_to_event_map[i].stop = end - base_to_event_map[i].stop;
+            }
+        }
+
+        // for(int i=0; i<n_kmers; i++){
+        //     fprintf(stderr,"%d %d, ",base_to_event_map[i].start,base_to_event_map[i].stop);
+        // }
+        // fprintf(stderr,"\n");
+
+    }
+
+    for(int i=0; i<n_kmers; i++){
+        if(base_to_event_map[i].start != -1){
+            ASSERT(base_to_event_map[i].stop != -1);
+            base_to_event_map[i].start += qstart;
+            base_to_event_map[i].stop += qstart;
+        }
+    }
+
+    //lazily copy pasted from https://github.com/hasindu2008/f5c/blob/master/src/resquiggle.c for now
+    int64_t signal_start_point = -1;
+    int64_t signal_end_point = -1;
+
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, 4000);
+    int64_t ci = 0; //current index
+    int64_t mi = 0;
+    int64_t d = 0; //deletion count
+    int8_t ff = 1; //first start flag
+    int matches = 0;
+
+    if (rna){
+        for (int j = 0; j < n_kmers/2; ++j) {
+            index_pair_t tmp= base_to_event_map[j];
+            base_to_event_map[j]=base_to_event_map[n_kmers-1-j];
+            base_to_event_map[n_kmers-1-j]=tmp;
+        }
+        for (int j = 0; j < n_kmers; ++j) {
+            int32_t tmp = base_to_event_map[j].start;
+            base_to_event_map[j].start = base_to_event_map[j].stop;
+            base_to_event_map[j].stop = tmp;
+        }
+    }
+
+    for (int j=0;j<n_kmers; j++){
+        int32_t start_event_idx = base_to_event_map[j].start;
+        int32_t end_event_idx = base_to_event_map[j].stop;
+        if(start_event_idx == -1){ //deletion from ref
+            ASSERT(end_event_idx == -1);
+            signal_start_point = signal_end_point = -1;
+            if(!ff){
+                ASSERT(j!=0);
+                d++;
+            }
+
+        } else {
+            ASSERT(end_event_idx != -1);
+            //ASSERT(start_event_idx <= end_event_idx);
+
+            signal_start_point = et.event[start_event_idx].start; //inclusive
+            if(ff) {
+                ff=0;
+            }
+            signal_end_point = et.event[end_event_idx].start + (int)et.event[end_event_idx].length; //non-inclusive
+
+            if(d>0){
+                sprintf_append(sp,"%dD",d);
+                d=0;
+            }
+            if(j==0) ci = signal_start_point;
+            ci += (mi =  signal_start_point - ci);
+            ASSERT(mi>=0); //todo remove assert for performance
+            if(mi) sprintf_append(sp,"%dI",(int)mi);
+            ci += (mi = signal_end_point-signal_start_point);
+
+            ASSERT(mi>=0); //todo remove assert for performance
+            if(mi) {
+                matches++;
+                sprintf_append(sp,"%d,",(int)mi);
+            }
+
+
+        }
+    }
+
+    str.s[str.l] = '\0';
+    return sp->s;
+
+}
+
+static char *sam_str(aln_t *aln, char *read_id, char *rname, uint64_t start_raw_idx , uint64_t end_raw_idx, uint64_t qlen, int64_t qstart, event_table et, int8_t rna) {
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, 4000);
+
+    int flag = aln->d == '+' ? 0 : 16;
+    sprintf_append(sp, "%s\t%d\t", read_id, flag); //qname, flag
+    sprintf_append(sp, "%s\t%ld\t%d\t", rname, (long)aln->pos_st+1, aln->mapq); //rname, pos, mapq
+    sprintf_append(sp, "%ldM\t%c\t%d\t%d\t",qlen, '*', 0, 0); //cigar, rnext, pnext, tlen
+
+    sprintf_append(sp, "%c\t%c\t",'*','*'); //seq, qual
+
+    uint64_t post_st = rna ? aln->pos_end : aln->pos_st;
+    uint64_t post_end = rna ?aln->pos_st : aln->pos_end;
+
+    sprintf_append(sp, "si:Z:%ld,%ld,%ld,%ld\t",start_raw_idx, end_raw_idx, post_st, post_end);
+
+    char *ss = r2qevent_map_to_ss(aln, qstart, et, rna);
+    sprintf_append(sp, "ss:Z:%s",ss);
+    free(ss);
+
+    sprintf_append(sp, "\n");
+    str.s[str.l] = '\0';
+    return sp->s;
 }
 
 void update_min(int32_t *min_pos_p, float *min_score_p, float *cost, int32_t qlen, int32_t rlen, int32_t k){
@@ -496,12 +809,13 @@ void update_min(int32_t *min_pos_p, float *min_score_p, float *cost, int32_t qle
 }
 
 void update_best_aln(aln_t *best, aln_t* aln, refsynth_t *ref){
+
     best->score = aln[SECONDARY_CAP-1].score;
     best->score2 = aln[SECONDARY_CAP-2].score;
     best->pos_st = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_st : ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_end  ;
     best->pos_end = aln[SECONDARY_CAP-1].d == '+' ? aln[SECONDARY_CAP-1].pos_end : ref->ref_lengths[aln[SECONDARY_CAP-1].rid] - aln[SECONDARY_CAP-1].pos_st  ;
 
-    best->pos_st +=ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
+    best->pos_st += ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
     best->pos_end += ref->ref_st_offset[aln[SECONDARY_CAP-1].rid];
     best->rid = aln[SECONDARY_CAP-1].rid;
     best->d = aln[SECONDARY_CAP-1].d;
@@ -511,6 +825,41 @@ void update_best_aln(aln_t *best, aln_t* aln, refsynth_t *ref){
         mapq=60;
     }
     best->mapq = mapq;
+    best->r2qevent_map = aln[SECONDARY_CAP-1].r2qevent_map;
+    best->r2qevent_size = aln[SECONDARY_CAP-1].r2qevent_size;
+
+}
+
+
+static void aln_to_str(core_t* core,db_t* db, int32_t i){
+
+    if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
+        // Output of results
+        uint64_t start_event_idx =  db->qstart[i];
+        uint64_t end_event_idx =  db->qend[i]-1;
+        ASSERT(start_event_idx>=0 && start_event_idx<db->et[i].n);
+        ASSERT(end_event_idx>=0 && end_event_idx<db->et[i].n);
+        uint64_t start_raw_idx = db->et[i].event[start_event_idx].start; //inclusive
+        uint64_t end_raw_idx = db->et[i].event[end_event_idx].start + db->et[i].event[end_event_idx].length; //exclusive
+
+        uint64_t query_size =  end_event_idx-start_event_idx;
+        uint64_t len_raw_signal = db->slow5_rec[i]->len_raw_signal;
+        uint64_t rlength = core->ref->ref_seq_lengths[db->aln[i].rid];
+        char *read_id = db->slow5_rec[i]->read_id;
+        char *rname = core->ref->ref_names[db->aln[i].rid];
+        int8_t rna = core->opt.flag & SIGFISH_RNA;
+
+        ASSERT(end_raw_idx <= len_raw_signal);
+
+        if(core->opt.flag & SIGFISH_SAM){ //can bring duplicate stuff in output_db for paf here
+            db->out[i] = sam_str(&db->aln[i], read_id, rname, start_raw_idx , end_raw_idx, query_size, start_event_idx,db->et[i], rna);
+        } else {
+            db->out[i] = paf_str(&db->aln[i], read_id, rname, start_raw_idx , end_raw_idx, query_size, rna, len_raw_signal, rlength);
+        }
+    } else {
+        db->out[i] = NULL;
+    }
+
 }
 
 void dtw_single(core_t* core,db_t* db, int32_t i) {
@@ -650,7 +999,9 @@ void dtw_single(core_t* core,db_t* db, int32_t i) {
 
         update_best_aln(&(db->aln[i]), aln, core->ref);
 
-        free(aln);
+        aln_to_str(core,db,i);
+        free_aln(aln);
+
     }
 
 }
@@ -710,54 +1061,6 @@ void process_db(core_t* core,db_t* db){
     core->process_db_time += (proc_end-proc_start);
 }
 
-char *sprintf_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
-    // Output of results
-    //uint64_t start_event_idx =  db->qstart[i];
-    //uint64_t end_event_idx =  db->qend[i];
-
-    ASSERT(start_event_idx>=0 && start_event_idx<=et.n);
-    ASSERT(end_event_idx>=0 && end_event_idx<=et.n);
-
-    //fprintf(stderr,"start_event_idx: %ld, end_event_idx: %ld\n", start_event_idx, end_event_idx);
-
-
-    uint64_t start_raw_idx = et.event[start_event_idx].start; //inclusive
-    //fprintf(stderr,"start_raw_idx: %ld\n", start_raw_idx);
-
-    uint64_t end_raw_idx = et.event[end_event_idx].start + et.event[end_event_idx].length; //exclusive
-    //fprintf(stderr,"end_raw_idx: %ld\n", et.event[end_event_idx].start);
-
-    uint64_t query_size =  end_event_idx-start_event_idx;
-    float block_len = aln.pos_end - aln.pos_st;
-    float residue = block_len - aln.score*block_len/(query_size) ;
-
-    // if(aln.score>70){
-    //     continue;
-    // }
-
-    kstring_t str;
-    kstring_t *sp = &str;
-    str_init(sp, sizeof(char)*10000);
-
-
-    sprintf_append(sp,"%s\t",read_id); // read id name
-    sprintf_append(sp,"%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
-    sprintf_append(sp,"%c\t",aln.d); // Direction
-    sprintf_append(sp,"%s\t",ref->ref_names[aln.rid]); // reference sequence name
-    sprintf_append(sp,"%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
-
-
-    sprintf_append(sp,"%d\t",aln.pos_st); // Reference start
-    sprintf_append(sp,"%d\t",aln.pos_end); // Reference end
-    sprintf_append(sp,"%d\t",(int)round(residue)); // Number of residues //todo check this
-    sprintf_append(sp,"%d\t",(int)round(block_len)); //  Alignment block length //todo check this
-    sprintf_append(sp,"%d\t",aln.mapq); // Mapq
-    sprintf_append(sp,"tp:A:P\t");
-    sprintf_append(sp,"d1:f:%.2f\t",aln.score); // distance of the best match
-    sprintf_append(sp,"d2:f:%.2f\n",aln.score2); // distance of the second best matcj
-
-    return sp->s;
-}
 
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db) {
@@ -778,12 +1081,11 @@ void output_db(core_t* core, db_t* db) {
         // printf("\n");
 
         if(db->slow5_rec[i]->len_raw_signal>0 && db->et[i].n>0){
-            char *aln_str = sprintf_aln(db->qstart[i], db->qend[i], db->et[i], db->aln[i],  core->ref, db->slow5_rec[i]->read_id, db->slow5_rec[i]->len_raw_signal);
-            printf("%s",aln_str);
-            free(aln_str);
+           fputs(db->out[i],stdout);
         }
 
     }
+    fflush(stdout);
 
     core->sum_bytes += db->sum_bytes;
     core->total_reads += db->total_reads;
@@ -805,6 +1107,7 @@ void free_db_tmp(db_t* db) {
         free(db->current_signal[i]);
         free(db->et[i].event);
         free(db->mem_records[i]);
+        free(db->out[i]); db->out[i]=NULL;
     }
 }
 
@@ -824,6 +1127,7 @@ void free_db(db_t* db) {
 
     free(db->et);
     free(db->aln);
+    free(db->out);
     //free(db->scalings);
 
     free(db);
@@ -834,6 +1138,8 @@ void init_opt(opt_t* opt) {
     memset(opt, 0, sizeof(opt_t));
     opt->batch_size = 512;
     opt->batch_size_bytes = 20*1000*1000;
+    opt->pore = NULL;
+    opt->pore_flag = 0;
     opt->num_thread = 8;
     opt->region_str = NULL; //whole genome processing if null
 
@@ -906,7 +1212,7 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
 
         model_t *pore_model = (model_t*)malloc(sizeof(model_t) * MAX_NUM_KMER); //4096 is 4^6 which is hardcoded now
         MALLOC_CHK(pore_model);
-        uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_NUCLEOTIDE);
+        uint32_t kmer_size = set_model(pore_model, MODEL_ID_RNA_R9_NUCLEOTIDE);
         uint32_t flag = 0;
         flag |= SIGFISH_RNA;
         if(opt.no_full_ref == 0) {
@@ -956,6 +1262,55 @@ void free_sigfish(sigfish_state_t *state){
 
     free(state);
 
+}
+
+char *sprintf_aln(int64_t start_event_idx, int64_t end_event_idx, event_table et, aln_t aln, refsynth_t *ref,  char *read_id, uint64_t len_raw_signal){
+    // Output of results
+    //uint64_t start_event_idx =  db->qstart[i];
+    //uint64_t end_event_idx =  db->qend[i];
+
+    ASSERT(start_event_idx>=0 && start_event_idx<=et.n);
+    ASSERT(end_event_idx>=0 && end_event_idx<=et.n);
+
+    //fprintf(stderr,"start_event_idx: %ld, end_event_idx: %ld\n", start_event_idx, end_event_idx);
+
+
+    uint64_t start_raw_idx = et.event[start_event_idx].start; //inclusive
+    //fprintf(stderr,"start_raw_idx: %ld\n", start_raw_idx);
+
+    uint64_t end_raw_idx = et.event[end_event_idx].start + et.event[end_event_idx].length; //exclusive
+    //fprintf(stderr,"end_raw_idx: %ld\n", et.event[end_event_idx].start);
+
+    uint64_t query_size =  end_event_idx-start_event_idx;
+    float block_len = aln.pos_end - aln.pos_st;
+    float residue = block_len - aln.score*block_len/(query_size) ;
+
+    // if(aln.score>70){
+    //     continue;
+    // }
+
+    kstring_t str;
+    kstring_t *sp = &str;
+    str_init(sp, sizeof(char)*10000);
+
+
+    sprintf_append(sp,"%s\t",read_id); // read id name
+    sprintf_append(sp,"%ld\t%ld\t%ld\t", len_raw_signal, start_raw_idx, end_raw_idx); // Raw signal length, start and end
+    sprintf_append(sp,"%c\t",aln.d); // Direction
+    sprintf_append(sp,"%s\t",ref->ref_names[aln.rid]); // reference sequence name
+    sprintf_append(sp,"%d\t",ref->ref_seq_lengths[aln.rid]); // reference sequence length
+
+
+    sprintf_append(sp,"%d\t",aln.pos_st); // Reference start
+    sprintf_append(sp,"%d\t",aln.pos_end); // Reference end
+    sprintf_append(sp,"%d\t",(int)round(residue)); // Number of residues //todo check this
+    sprintf_append(sp,"%d\t",(int)round(block_len)); //  Alignment block length //todo check this
+    sprintf_append(sp,"%d\t",aln.mapq); // Mapq
+    sprintf_append(sp,"tp:A:P\t");
+    sprintf_append(sp,"d1:f:%.2f\t",aln.score); // distance of the best match
+    sprintf_append(sp,"d2:f:%.2f\n",aln.score2); // distance of the second best matcj
+
+    return sp->s;
 }
 
 aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp, sigfish_opt_t opt){

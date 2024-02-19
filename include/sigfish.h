@@ -8,19 +8,20 @@
 #include <stdint.h>
 #include <slow5/slow5.h>
 
-#define SIGFISH_VERSION "0.1.0"
+#define SIGFISH_VERSION "0.2.0"
 
 //model types
 #define MODEL_TYPE_NUCLEOTIDE 1
-#define MODEL_TYPE_METH 2
+// #define MODEL_TYPE_METH 2
 
-#define MAX_KMER_SIZE 6 //maximum k-mer size
-#define MAX_NUM_KMER 4096   //maximum number of k-mers in nucleotide model
-#define MAX_NUM_KMER_METH 15625 //maximum number of k-mers in methylated model
+#define MAX_KMER_SIZE 9 //maximum k-mer size
+#define MAX_NUM_KMER 262144   //maximum number of k-mers in nucleotide model
 
 //default model IDs
-#define MODEL_ID_DNA_NUCLEOTIDE 1
-#define MODEL_ID_RNA_NUCLEOTIDE 2
+#define MODEL_ID_DNA_R9_NUCLEOTIDE 1
+#define MODEL_ID_RNA_R9_NUCLEOTIDE 2
+#define MODEL_ID_DNA_R10_NUCLEOTIDE 3
+#define MODEL_ID_RNA_RNA004_NUCLEOTIDE 4
 
 /*******************************************************
  * flags related to the user specified options (opt_t) *
@@ -34,12 +35,17 @@
 #define SIGFISH_END 0x020 //map the end of the query
 #define SIGFISH_PRF 0x040 //cpu-profile mode
 #define SIGFISH_ACC 0x080 //accelerator enable
+#define SIGFISH_SAM 0x100 //SAM format
+#define SIGFISH_R10 0x200 //r10
 
 #define SECONDARY_CAP 5 //maximum number of secondary events to print
 
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
 
+#define OPT_PORE_R9 0
+#define OPT_PORE_R10 1
+#define OPT_PORE_RNA004 2
 
 //linear segment alignment record
 #define LSAR_TJUMP 'J'      //jump in the target
@@ -118,8 +124,11 @@ typedef struct {
     uint32_t flag;              //flags
     int32_t batch_size;         //max reads loaded at once: K
     int64_t batch_size_bytes;   //max bytes loaded at once: B
+    char *pore;
+    int8_t pore_flag;
 
     int32_t num_thread; //t
+    int8_t verbosity;
     int32_t debug_break;
 
     char *region_str; //the region string in format chr:start-end
@@ -130,6 +139,11 @@ typedef struct {
 } opt_t;
 
 typedef struct {
+    int32_t start; // index of the event that maps first to the base
+    int32_t stop; // inclusive // index of the event that maps last to the base
+} index_pair_t;
+
+typedef struct {
     int32_t rid;
     int32_t pos_st;
     int32_t pos_end;
@@ -137,6 +151,10 @@ typedef struct {
     float score2;
     char d;
     uint8_t mapq;
+
+    index_pair_t *r2qevent_map;
+    int32_t r2qevent_size;
+
 } aln_t;
 
 /* a batch of read data (dynamic data based on the reads) */
@@ -164,6 +182,9 @@ typedef struct {
 
     //results
     aln_t* aln;
+
+    //result string
+    char **out;
 
     //stats
     int64_t sum_bytes;

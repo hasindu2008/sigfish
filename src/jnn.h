@@ -27,7 +27,7 @@ typedef struct {
 } jnn_param_t;
 
 
-#define JNNV1_PARAM { \
+#define JNNV1_DRNA_R9_PARAM { \
     .std_scale = 0.75, \
     .corrector = 50, \
     .seg_dist = 50, \
@@ -38,8 +38,19 @@ typedef struct {
     .bot = 0, \
 } \
 
+#define JNNV1_CDNA_R9_PARAM { \
+    .std_scale = 0.75, \
+    .corrector = 50, \
+    .seg_dist = 50, \
+    .window = 150, \
+    .stall_len = 0.25, \
+    .error = 5, \
+    .top = 0, \
+    .bot = 0, \
+} \
+
 //relative
-#define JNNV1_POLYA { \
+#define JNNV1_R9_POLYA { \
     .std_scale = -1, \
     .corrector = 50, \
     .seg_dist = 200, \
@@ -50,6 +61,16 @@ typedef struct {
     .bot = 0, \
 } \
 
+#define JNNV1_RNA004_POLYA { \
+    .std_scale = -1, \
+    .corrector = 50, \
+    .seg_dist = 200, \
+    .window = 250, \
+    .stall_len = 1.0, \
+    .error = 30, \
+    .top = 0, \
+    .bot = 0, \
+} \
 
 typedef struct {
     float std_scale;
@@ -61,12 +82,20 @@ typedef struct {
 } jnnv2_param_t;
 
 //dRNA segmenter
-#define JNNV2_RNA_ADAPTOR { \
+#define JNNV2_RNA_R9_ADAPTOR { \
     .std_scale = 0.5, \
     .seg_dist = 1500, \
     .window = 2000, \
     .hi_thresh = 200000, \
     .lo_thresh = 2000, \
+} \
+
+#define JNNV2_RNA_RNA004_ADAPTOR { \
+    .std_scale = 0.7, \
+    .seg_dist = 1500, \
+    .window = 2000, \
+    .hi_thresh = 200000, \
+    .lo_thresh = 500, \
 } \
 
 #define SIGTK_SIZE 1000
@@ -75,8 +104,8 @@ typedef struct {
 
 jnn_pair_t *jnn_raw(const int16_t *raw, int64_t nsample, jnn_param_t param, int *n);
 jnn_pair_t *jnn_pa(const float *raw, int64_t nsample, jnn_param_t param, int *n);
-jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot);
-jnn_pair_t find_adaptor(slow5_rec_t *rec);
-jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt);
+jnn_pair_t find_polya(const float *raw, int64_t nsample, float top, float bot, int8_t pore);
+jnn_pair_t find_adaptor(slow5_rec_t *rec, int8_t pore);
+jnn_pair_t jnn_print(slow5_rec_t *rec, int8_t fmt, int8_t rna);
 jnn_pair_t jnnv2(const int16_t *sig, int64_t nsample, jnnv2_param_t param);
 #endif
