@@ -11,20 +11,17 @@
 #include "error.h"
 #include "misc.h"
 
-
 static struct option long_options[] = {
     {"threads", required_argument, 0, 't'},        //0 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //1 batchsize - number of reads loaded at once [512]
     {"verbose", required_argument, 0, 'v'},        //2 verbosity level [1]
     {"help", no_argument, 0, 'h'},                 //3
     {"version", no_argument, 0, 'V'},              //4
-    {"output", required_argument, 0, 'o'},          //5 output to a file [stdout]
-    {"prefix", required_argument, 0,'b'},            //6
-    {"query-size", required_argument, 0, 'q'},        //7
+    {"output", required_argument, 0, 'o'},         //5 output to a file [stdout]
+    {"prefix", required_argument, 0,'b'},          //6
+    {"query-size", required_argument, 0, 'q'},     //7
     {"full-ref", no_argument, 0, 0},               //8 Map to full reference instead of a segment
     {0, 0, 0, 0}};
-
-
 
 float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_chunks) {
     float **chunks = (float **)malloc(sizeof(float *)*num_chunks);
@@ -41,11 +38,11 @@ float **get_chunks(const float *raw, int64_t nsample, int chunk_size, int num_ch
     return chunks;
 }
 
-void jnn_v3 (const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t, refsynth_t *ref, char *read_id, sigfish_opt_t opt) {
+void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astate_t *s, jnnv3_pparam_t pparam, jnnv3_pstate_t *t, refsynth_t *ref, char *read_id, sigfish_opt_t opt) {
 
     // now feed algorithm with chunks of signal simulating real-time
-    const int chunk_size = 1200;
-    const int start_chunks = 6; //num of chunks to store before processing
+    const int chunk_size = param.chunk_size;
+    const int start_chunks = param.start_chunks;
     const int num_chunks = (nsample + chunk_size -1) / chunk_size;
     float **chunks = get_chunks(raw, nsample, chunk_size, num_chunks);
 
@@ -67,7 +64,7 @@ void jnn_v3 (const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_asta
         float *chunk = chunks[chunk_i];
         //fprintf(stderr,"processing chunk: %d, size %d\n", chunk_i, current_chunk_size);
 
-        for(int j = 0; j < current_chunk_size; j++){
+        for (int j = 0; j < current_chunk_size; j++) {
             sig_store[sig_store_i] = chunk[j];
             sig_store_i++;
             ASSERT(sig_store_i <= nsample);
@@ -88,7 +85,7 @@ void jnn_v3 (const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_asta
             current_chunk_size = sig_size;
         }
 
-        if (!s->adapter_found){
+        if (!s->adapter_found) {
             jnnv3_acore(s, param, chunk, current_chunk_size);
             if (s->adapter_found){
                 jnn_pair_t p = s->segs[0];
@@ -102,18 +99,21 @@ void jnn_v3 (const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_asta
             jnnv3_pcore(t, pparam,chunk,current_chunk_size);
         }
 
-        if(t->polya_found){
+        if (t->polya_found) {
             ASSERT(s->adapter_found == 1);
             ASSERT(t->seg_i > 0);
             ASSERT(s->seg_i > 0);
+
             jnn_pair_t polya = t->segs[0];
             jnn_pair_t adapt = s->segs[0];
+
             int st = polya.y+adapt.y-1;
             int leftover = sig_store_i - st;
-            if(leftover >= opt.query_size_sig){
+
+            if (leftover >= opt.query_size_sig) {
                 //fprintf(stderr,"leftover: %d, running DTW\n", leftover);
-                if(ref){
-                    best_aln=map(ref, sig_store, sig_store_i, st, read_id, &paf, opt);
+                if (ref) {
+                    best_aln = map(ref, sig_store, sig_store_i, st, read_id, &paf, opt);
                 }
                 break;
             } else {
@@ -138,7 +138,7 @@ void jnn_v3 (const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_asta
             printf("%ld\t%ld\n", polya.x+s->segs[0].y-1, polya.y+s->segs[0].y-1);
         }
     } else {
-        if(best_aln.pos_st > 0){
+        if (best_aln.pos_st > 0) {
             printf("%s",paf);
             free(paf);
         }
@@ -186,7 +186,7 @@ int prefix_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
     jnnv3_astate_t *s = init_jnnv3_astate(param);
     jnnv3_pstate_t *t = init_jnnv3_pstate(pparam);
 
-    while ((ret = slow5_get_next(&rec,sp)) >= 0) {
+    while ((ret = slow5_get_next(&rec, sp)) >= 0) {
         if (ref == NULL) printf("%s\t%ld\t",rec->read_id,rec->len_raw_signal);
         float *signal = signal_in_picoamps(rec);
         jnn_v3(signal, rec->len_raw_signal, param, s, pparam, t, ref, rec->read_id, opt);
@@ -207,7 +207,7 @@ int prefix_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
     return 0;
 }
 
-#define TO_PICOAMPS(RAW_VAL, DIGITISATION, OFFSET, RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
+#define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
 int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
 
@@ -216,7 +216,7 @@ int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
     slow5_rec_t *rec = NULL;
     int ret=0;
 
-    int channels=1;
+    int channels = 1;
 
     ASSERT(opt.num_thread == 1);
 
@@ -225,20 +225,20 @@ int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
 
     int read_num = 0;
 
-    while ((ret = slow5_get_next(&rec,sp)) >= 0) {
+    while ((ret = slow5_get_next(&rec, sp)) >= 0) {
 
         float *signal = signal_in_picoamps(rec);
-
+ 
         // now feed algorithm with chunks of signal simulating real-time
-        const int chunk_size = 1200;
-        const int num_chunks = (rec->len_raw_signal + chunk_size -1) / chunk_size;
+        const int chunk_size = 1200; // todo: load this from params
+        const int num_chunks = (rec->len_raw_signal + chunk_size-1) / chunk_size;
         float **chunks = get_chunks(signal, rec->len_raw_signal, chunk_size, num_chunks);
 
         for (int chunk_i = 0; chunk_i < num_chunks; chunk_i++) {
             int current_chunk_size = (chunk_i == num_chunks-1) ? rec->len_raw_signal - chunk_i*chunk_size : chunk_size;
             float *chunk = chunks[chunk_i];
 
-            int i=0;
+            int i = 0;
             reads[i].channel = i+1;
             reads[i].read_number = read_num;
             reads[i].len_raw_signal = current_chunk_size;
@@ -248,7 +248,7 @@ int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
             reads[i].raw_signal = chunk;
 
             enum sigfish_status *status = process_sigfish(state, reads, 1);
-            if(status[i] != SIGFISH_MORE){
+            if (status[i] != SIGFISH_MORE) {
                 fprintf(stderr, "Decision %d\n", status[i]);
                 free(status);
                 free(reads[i].read_id);
@@ -303,8 +303,8 @@ int jnn_dtw_mt_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt)
             strcpy(reads[i].read_id,rec->read_id);
             ASSERT(reads[i].read_id != NULL);
             reads[i].raw_signal = (float*)malloc(sizeof(float)*rec->len_raw_signal);
-            for (int j=0; j<rec->len_raw_signal; j++){
-                reads[i].raw_signal[j] = TO_PICOAMPS(rec->raw_signal[j], rec->digitisation, rec->offset, rec->range);
+            for (int j = 0; j < rec->len_raw_signal; j++){
+                reads[i].raw_signal[j] = TO_PICOAMPS(rec->raw_signal[j],rec->digitisation,rec->offset,rec->range);
             }
             i++;
         }

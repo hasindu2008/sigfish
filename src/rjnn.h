@@ -9,11 +9,13 @@
 
 typedef struct {
     float std_scale;
-    int corrector; //corrector, window to increase total error thresh
+    int corrector; // corrector, window to increase total error thresh
     int seg_dist; // distance between 2 segs to be merged as one
     int window;
     int error;
     int min_seg_len;
+    int chunk_size;
+    int start_chunks; // num of chunks to store before processing
 } jnnv3_aparam_t;
 
 //dRNA realtime adaptor
@@ -24,6 +26,8 @@ typedef struct {
     .window = 300, \
     .error = 5, \
     .min_seg_len = 4000, \
+    .chunk_size = 1200, \
+    .start_chunks = 6, \
 } \
 
 #define JNNV3_RNA004_ADAPTOR { \
@@ -33,6 +37,8 @@ typedef struct {
     .window = 300, \
     .error = 5, \
     .min_seg_len = 4000, \
+    .chunk_size = 1200, \
+    .start_chunks = 11, \
 } \
 
 typedef struct jnnv3_astate_s {
@@ -68,14 +74,14 @@ void jnnv3_acalc_param(jnnv3_astate_t *s, jnnv3_aparam_t param, float *sig_store
 void jnnv3_acore(jnnv3_astate_t *s, jnnv3_aparam_t param, float *chunk, int current_chunk_size);
 
 typedef struct {
-    int corrector; //corrector, window to increase total error thresh
+    int corrector; // corrector, window to increase total error thresh
     int seg_dist; // distance between 2 segs to be merged as one
     int window;
     float stall_len;
     int error;
 } jnnv3_pparam_t;
 
-//dRNA realtime polyA parameters
+// dRNA realtime polyA parameters
 #define JNNV3_R9_POLYA { \
     .corrector = 50, \
     .seg_dist = 200, \
@@ -92,7 +98,7 @@ typedef struct {
     .error = 30, \
 } \
 
-typedef struct jnnv3_pstate_s{
+typedef struct jnnv3_pstate_s {
 
     int8_t prev;  // previous string
     int err;       // total error
