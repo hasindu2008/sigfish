@@ -98,27 +98,27 @@ BLOW5=test/sequin_rna.blow5
 
 echo "DNA real jnn+dtw single-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t 1 > test/jnn_dtw_real_dna.txt || die "Running the tool failed"
-execute_test test/jnn_dtw_real_dna.txt test/jnn_dna.exp 5 || die "diff failed"
+execute_test test/jnn_dtw_real_dna.txt test/jnn_dtw_real_dna.exp 0 || die "diff failed"
 
 echo "DNA real jnn+dtw multi-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > test/jnn_dtw_real_dna.txt || die "Running the tool failed"
-execute_test test/jnn_dtw_real_dna.txt test/jnn_dna.exp 5 || die "diff failed"
+execute_test test/jnn_dtw_real_dna.txt test/jnn_dtw_real_dna.exp 0 || die "diff failed"
 
 echo "RNA real jnn+dtw multi-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t 1 > test/jnn_dtw_real_rna.txt || die "Running the tool failed"
-execute_test test/jnn_dtw_real_dna.txt test/jnn_rna.exp 20 || die "diff failed"
+execute_test test/jnn_dtw_real_dna.txt test/jnn_dtw_real_rna.exp 0 || die "diff failed"
 
 echo "RNA real jnn+dtw multi-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > test/jnn_dtw_real_rna.txt || die "Running the tool failed"
-execute_test test/jnn_dtw_real_rna.txt test/jnn_rna.exp 20 || die "diff failed"
+execute_test test/jnn_dtw_real_rna.txt test/jnn_dtw_real_rna.exp 0 || die "diff failed"
 
 echo "DNA real jnn"
 ex ./sigfish real test/sp1_dna.blow5 > test/jnn_real_dna.txt || die "Running the tool failed"
-execute_test test/jnn_real_dna.txt test/prefix_dna.exp 5
+execute_test test/jnn_real_dna.txt test/prefix_dna.exp 0
 
 echo "RNA real jnn"
 ex ./sigfish real test/sequin_rna.blow5 > test/jnn_real_rna.txt || die "Running the tool failed"
-execute_test test/jnn_real_rna.txt test/prefix_rna.exp 20 || die "diff failed"
+execute_test test/jnn_real_rna.txt test/prefix_rna.exp 0 || die "diff failed"
 
 echo "*******************************************************"
 echo "Tests passed"
