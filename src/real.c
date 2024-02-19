@@ -160,7 +160,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
 int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"real_main1: realtime jnn with 1 thread\n");
+    fprintf(stderr,"running realtime jnn with 1 thread\n");
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -221,7 +221,7 @@ int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 
 int real_main3(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"real_main3: realtime jnn+dtw with 1 thread\n");
+    fprintf(stderr,"running realtime jnn+dtw with 1 thread\n");
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -301,7 +301,7 @@ int real_main3(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 
 int real_main2(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"real_main2: realtime jnn+dtw with %d threads\n", opt.num_thread);
+    fprintf(stderr,"running realtime jnn+dtw with %d threads\n", opt.num_thread);
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
