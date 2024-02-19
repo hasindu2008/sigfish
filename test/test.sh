@@ -91,7 +91,7 @@ echo "RNA sequin"
 ex ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}  || die "Running the DTW failed"
 EVALUATE
 
-# real
+# realtime jnn+dtw
 
 REF=test/rnasequin_sequences_2.4.fa
 BLOW5=test/sequin_rna.blow5
@@ -112,13 +112,15 @@ echo "RNA real jnn+dtw multi-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > test/jnn_dtw_real_rna.txt || die "Running the tool failed"
 execute_test test/jnn_dtw_real_rna.txt test/jnn_dtw_real_rna.exp 0 || die "diff failed"
 
-echo "DNA real jnn"
-ex ./sigfish real test/sp1_dna.blow5 > test/jnn_real_dna.txt || die "Running the tool failed"
-execute_test test/jnn_real_dna.txt test/prefix_dna.exp 0
+# realtime prefix
 
-echo "RNA real jnn"
-ex ./sigfish real test/sequin_rna.blow5 > test/jnn_real_rna.txt || die "Running the tool failed"
-execute_test test/jnn_real_rna.txt test/prefix_rna.exp 0 || die "diff failed"
+echo "DNA real prefix"
+ex ./sigfish real test/sp1_dna.blow5 > test/prefix_real_dna.txt || die "Running the tool failed"
+execute_test test/prefix_real_dna.txt test/prefix_dna.exp 0
+
+echo "RNA real prefix"
+ex ./sigfish real test/sequin_rna.blow5 > test/prefix_real_rna.txt || die "Running the tool failed"
+execute_test test/prefix_real_rna.txt test/prefix_rna.exp 0 || die "diff failed"
 
 echo "*******************************************************"
 echo "Tests passed"

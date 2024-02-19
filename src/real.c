@@ -160,7 +160,7 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 
 int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"running realtime jnn with 1 thread\n");
+    fprintf(stderr,"running realtime prefix with 1 thread\n");
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if(sp==NULL){
@@ -360,7 +360,7 @@ int real_main2(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 
 static inline void print_help_msg(FILE *fp_help){
     fprintf(fp_help,"Usage:\n");
-    fprintf(fp_help,"   jnn: sigfish real reads.blow5\n");
+    fprintf(fp_help,"   prefix: sigfish real reads.blow5\n");
     fprintf(fp_help,"   jnn+dtw: sigfish real genome.fa reads.blow5\n");
 }
 
