@@ -214,7 +214,7 @@ int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
     fprintf(stderr,"running realtime jnn+dtw with 1 thread\n");
     
     slow5_rec_t *rec = NULL;
-    int ret=0;
+    int ret = 0;
 
     int channels = 1;
 
@@ -283,9 +283,9 @@ int jnn_dtw_mt_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt)
     fprintf(stderr,"running realtime jnn+dtw with %d threads\n", opt.num_thread);
 
     slow5_rec_t *rec = NULL;
-    int ret=0;
+    int ret = 0;
 
-    int channels=512;
+    int channels = 512;
 
     ASSERT(opt.num_thread > 1);
 
