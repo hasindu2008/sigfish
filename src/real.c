@@ -157,16 +157,10 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
 }
 
 
+int real_main1(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt){
 
-int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
+    fprintf(stderr,"running realtime prefix with 1 thread\n");
 
-    fprintf(stderr,"real_main1: realtime jnn with 1 thread\n");
-
-    slow5_file_t *sp = slow5_open(slow5file,"r");
-    if(sp==NULL){
-       fprintf(stderr,"Error in opening file\n");
-       exit(EXIT_FAILURE);
-    }
     slow5_rec_t *rec = NULL;
     int ret=0;
 
@@ -187,9 +181,16 @@ int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 
     if(ref == NULL) printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
 
-    const jnnv3_aparam_t param = JNNV3_ADAPTOR;
+    jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+    jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
+    if (opt.pore == OPT_PORE_RNA004) {
+        jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+        param = atmp;
+        jnnv3_pparam_t ptmp = JNNV3_RNA004_POLYA;
+        pparam = ptmp;
+    }
+
     jnnv3_astate_t *s= init_jnnv3_astate(param);
-    const jnnv3_pparam_t pparam = JNNV3_POLYA;
     jnnv3_pstate_t *t = init_jnnv3_pstate(pparam);
 
     while((ret = slow5_get_next(&rec,sp)) >= 0){
@@ -219,15 +220,10 @@ int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
 
-int real_main3(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
+int real_main3(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"real_main3: realtime jnn+dtw with 1 thread\n");
-
-    slow5_file_t *sp = slow5_open(slow5file,"r");
-    if(sp==NULL){
-       fprintf(stderr,"Error in opening file\n");
-       exit(EXIT_FAILURE);
-    }
+    fprintf(stderr,"running realtime jnn+dtw with 1 thread\n");
+    
     slow5_rec_t *rec = NULL;
     int ret=0;
 
@@ -299,15 +295,10 @@ int real_main3(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 
 
 
-int real_main2(const char *slow5file, const char *fasta_file, sigfish_opt_t opt){
+int real_main2(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt){
 
-    fprintf(stderr,"real_main2: realtime jnn+dtw with %d threads\n", opt.num_thread);
+    fprintf(stderr,"running realtime jnn+dtw with %d threads\n", opt.num_thread);
 
-    slow5_file_t *sp = slow5_open(slow5file,"r");
-    if(sp==NULL){
-       fprintf(stderr,"Error in opening file\n");
-       exit(EXIT_FAILURE);
-    }
     slow5_rec_t *rec = NULL;
     int ret=0;
 
@@ -359,9 +350,9 @@ int real_main2(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 }
 
 static inline void print_help_msg(FILE *fp_help){
-    fprintf(fp_help,"Usage: sigfish real <file.blow5>\n");
-    fprintf(fp_help,"Usage: sigfish real <ref.fa> <file.blow5> \n");
-
+    fprintf(fp_help,"Usage:\n");
+    fprintf(fp_help,"   prefix: sigfish real reads.blow5\n");
+    fprintf(fp_help,"   jnn+dtw: sigfish real genome.fa reads.blow5\n");
 }
 
 #define SAMPLES_PER_EVENT 24
@@ -385,6 +376,7 @@ int real_main(int argc, char* argv[]){
     opt.dtw_cutoff = 70;
     opt.query_size_events = 250;
     opt.query_size_sig = SAMPLES_PER_EVENT * opt.query_size_events;
+    opt.pore = 0;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -432,20 +424,33 @@ int real_main(int argc, char* argv[]){
 
     const char *slow5file = NULL;
     const char *fasta_file = NULL;
+
     if(argc - optind == 1){
         slow5file = argv[optind];
-        real_main1(slow5file, fasta_file, opt);
     } else if (argc - optind == 2){
         slow5file = argv[optind +1];
         fasta_file = argv[optind];
-        if(num_thread > 1){
-            real_main2(slow5file, fasta_file, opt);
-        } else {
-            real_main3(slow5file, fasta_file, opt);
-        }
     } else {
         ERROR("%s","Too many arguments");
         exit(EXIT_FAILURE);
+    }
+
+    slow5_file_t *sp = slow5_open(slow5file,"r");
+    if(sp==NULL){
+       fprintf(stderr,"Error in opening file\n");
+       exit(EXIT_FAILURE);
+    }
+
+    opt.pore = pore_detect(sp);
+
+    if (fasta_file != NULL){
+        if(num_thread > 1){
+            real_main2(sp, fasta_file, opt);
+        } else {
+            real_main3(sp, fasta_file, opt);
+        }
+    } else {
+        real_main1(sp, fasta_file, opt);
     }
 
     return 0;
