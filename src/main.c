@@ -48,6 +48,7 @@ int print_usage(FILE *fp_help){
     fprintf(fp_help,"command:\n");
     fprintf(fp_help,"         dtw       align query signal to target reference in using DTW\n");
     fprintf(fp_help,"         eval      evaluate mappings\n");
+    fprintf(fp_help,"         real      perform the real-time version of DTW or JNN\n");
     if(fp_help==stderr){
         exit(EXIT_FAILURE);
     }

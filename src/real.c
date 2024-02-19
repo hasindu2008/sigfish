@@ -359,9 +359,9 @@ int real_main2(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 }
 
 static inline void print_help_msg(FILE *fp_help){
-    fprintf(fp_help,"Usage: sigfish real <file.blow5>\n");
-    fprintf(fp_help,"Usage: sigfish real <ref.fa> <file.blow5> \n");
-
+    fprintf(fp_help,"Usage:\n");
+    fprintf(fp_help,"   dtw: sigfish real reads.blow5\n");
+    fprintf(fp_help,"   jnn: sigfish real genome.fa reads.blow5\n");
 }
 
 #define SAMPLES_PER_EVENT 24
