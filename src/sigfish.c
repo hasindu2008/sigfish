@@ -1193,8 +1193,8 @@ sigfish_state_t *init_sigfish(const char *ref_name, int num_channels, sigfish_op
     state->t = (jnnv3_pstate_t **)calloc(num_channels,sizeof(jnnv3_pstate_t *));
     MALLOC_CHK(state->t);
 
-    const jnnv3_aparam_t param = JNNV3_ADAPTOR;
-    const jnnv3_pparam_t pparam = JNNV3_POLYA;
+    const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+    const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
 
     for(int i=0;i<num_channels;i++){
         state->reads[i].c_raw_signal = 10000;
@@ -1451,8 +1451,8 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
             jnnv3_astate_t *s = state->s[channel];
             jnnv3_pstate_t *t = state->t[channel];
 
-            const jnnv3_aparam_t param = JNNV3_ADAPTOR;
-            const jnnv3_pparam_t pparam = JNNV3_POLYA;
+            const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+            const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
 
             if (s->top == 0){ //enough chunks arrived
                 LOG_TRACE("%s","Enough chunks, start to detect adaptor");
@@ -1553,8 +1553,8 @@ void process_sigfish_single(sigfish_state_t *state, sigfish_read_t *read_batch, 
         }
         jnnv3_astate_t *s = state->s[channel];
         jnnv3_pstate_t *t = state->t[channel];
-        const jnnv3_aparam_t param = JNNV3_ADAPTOR;
-        const jnnv3_pparam_t pparam = JNNV3_POLYA;
+        const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+        const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
         reset_jnnv3_astate(s,param);
         reset_jnnv3_pstate(t,pparam);
         if(r->c_raw_signal < read_batch[i].len_raw_signal){

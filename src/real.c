@@ -187,9 +187,9 @@ int real_main1(const char *slow5file, const char *fasta_file, sigfish_opt_t opt)
 
     if(ref == NULL) printf("read_id\tlen_raw_signal\tadapt_start\tadapt_end\tpolya_start\tpolya_end\n");
 
-    const jnnv3_aparam_t param = JNNV3_ADAPTOR;
+    const jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
     jnnv3_astate_t *s= init_jnnv3_astate(param);
-    const jnnv3_pparam_t pparam = JNNV3_POLYA;
+    const jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
     jnnv3_pstate_t *t = init_jnnv3_pstate(pparam);
 
     while((ret = slow5_get_next(&rec,sp)) >= 0){
