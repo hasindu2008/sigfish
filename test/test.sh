@@ -91,12 +91,16 @@ echo "RNA sequin"
 ex ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}  || die "Running the DTW failed"
 EVALUATE
 
-echo "RNA real jnn+dtw multi-thread"
+echo "RNA real jnn+dtw single-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t 1 > ${MY_PAF} || die "Running the tool failed"
 EVALUATE
 
 echo "RNA real jnn+dtw multi-thread"
 ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > ${MY_PAF} || die "Running the tool failed"
+EVALUATE
+
+echo "RNA real jnn+dtw multi-thread full ref"
+./sigfish real --full-ref  ${REF} ${BLOW5} -t ${THREADS} > ${MY_PAF} || die "Running the tool failed"
 EVALUATE
 
 # realtime prefix
