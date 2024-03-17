@@ -212,7 +212,7 @@ int prefix_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
 int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
 
     fprintf(stderr,"running realtime jnn+dtw with 1 thread\n");
-    
+
     slow5_rec_t *rec = NULL;
     int ret = 0;
 
@@ -228,7 +228,7 @@ int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
     while ((ret = slow5_get_next(&rec, sp)) >= 0) {
 
         float *signal = signal_in_picoamps(rec);
- 
+
         // now feed algorithm with chunks of signal simulating real-time
         const int chunk_size = 1200; // todo: load this from params
         const int num_chunks = (rec->len_raw_signal + chunk_size-1) / chunk_size;

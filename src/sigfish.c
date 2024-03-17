@@ -627,6 +627,11 @@ void update_aln(aln_t* aln, float score, int32_t rid, int32_t pos, char d, float
         } else {
             aln[l-1].r2qevent_size = 0;
             aln[l-1].r2qevent_map = NULL;
+            //estimate
+            ASSERT(pos>=0);
+            aln[l-1].pos_st = pos - qlen/2;
+            aln[l-1].pos_st = aln[l-1].pos_st < 0 ? 0 : aln[l-1].pos_st;
+
         }
 
     }
@@ -1381,7 +1386,7 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
         update_best_aln(&best_aln, aln, ref);
         free(aln);
 
-        if(best_aln.pos_st > 0 && sp!=NULL){
+        if(best_aln.pos_st >= 0 && sp!=NULL){
             *sp=sprintf_aln(start_idx, end_idx, et, best_aln,  ref, read_id, nsample);
         } else {
             *sp=NULL;
