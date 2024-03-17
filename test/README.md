@@ -1,6 +1,6 @@
 # Test Workflows
 
-## Checking accuracy with [Squigulator](https://github.com/hasindu2008/squigulator)
+## Checking DTW accuracy with [Squigulator](https://github.com/hasindu2008/squigulator)
 
 ```sh
 PROFILE=rna-r9-prom # r9
