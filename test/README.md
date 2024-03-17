@@ -6,7 +6,7 @@
 PROFILE=rna-r9-prom # r9
 PROFILE=rna004-prom # rna004
 
-# simulate r9 data
+# simulate data
 squigulator -x ${PROFILE} test/rnasequin_sequences_2.4.fa -o rna.blow5 -c rna.paf --prefix=yes --paf-ref
 
 # static dtw
