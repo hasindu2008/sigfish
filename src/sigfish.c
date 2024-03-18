@@ -1427,7 +1427,7 @@ void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
     }
 
     int chunk_size = param.chunk_size;
-    uint64_t sigfish_min_samples = chunk_size*7;
+    uint64_t sigfish_min_samples = chunk_size*(param.start_chunks+1);
 
     //if too short to start detecting adaptor
     if (r->len_raw_signal < sigfish_min_samples){
@@ -1436,7 +1436,7 @@ void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
 
         //detect adaptor
         float sum = 0;
-        for(int j = chunk_size*6; j < chunk_size*7; j++){
+        for(int j = chunk_size*param.start_chunks; j < (int)sigfish_min_samples; j++){
             sum += r->raw_signal[j];
         }
         sum /= chunk_size;
@@ -1464,10 +1464,11 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
             jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
             param = atmp;
         }
+        uint64_t sigfish_min_samples = param.chunk_size*(param.start_chunks+1);
 
         state->status[channel] = status[i] = SIGFISH_MORE;
         //if too short to start detecting adaptor
-        if (r->len_raw_signal >= param.chunk_size*7){
+        if (r->len_raw_signal >= sigfish_min_samples){
 
             float *sig_store = r->raw_signal;
             int sig_store_i = r->len_raw_signal;

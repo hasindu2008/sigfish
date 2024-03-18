@@ -394,7 +394,7 @@ int real_main(int argc, char* argv[]) {
         } else if (c == 'q') { //query size
             opt.query_size_events = atoi(optarg);
             if (opt.query_size_events < 0) {
-                ERROR("Query size should larger than 0. You entered %d",opt.query_size_events);
+                ERROR("Query size should larger than 0. You entered %d", opt.query_size_events);
                 exit(EXIT_FAILURE);
             }
             opt.query_size_sig = SAMPLES_PER_EVENT * opt.query_size_events;
@@ -419,17 +419,22 @@ int real_main(int argc, char* argv[]) {
         slow5file = argv[optind +1];
         fasta_file = argv[optind];
     } else {
-        ERROR("%s","Too many arguments");
+        ERROR("%s", "Too many arguments");
         exit(EXIT_FAILURE);
     }
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if (sp == NULL) {
-       fprintf(stderr,"Error in opening file\n");
+       ERROR("%s", "Error in opening file\n");
        exit(EXIT_FAILURE);
     }
 
     opt.pore = pore_detect(sp);
+
+    if (drna_detect(sp) != 1) {
+        ERROR("%s", "Detected something other than RNA data, aborting");
+        exit(EXIT_FAILURE);
+    }
 
     if (fasta_file != NULL) {
         if (num_thread > 1) {
