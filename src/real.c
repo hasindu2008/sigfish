@@ -225,12 +225,18 @@ int jnn_dtw_main(slow5_file_t *sp, const char *fasta_file, sigfish_opt_t opt) {
 
     int read_num = 0;
 
+    jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
+    if (opt.pore == OPT_PORE_RNA004) {
+        jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+        param = atmp;
+    }
+    int chunk_size = param.chunk_size;
+
     while ((ret = slow5_get_next(&rec, sp)) >= 0) {
 
         float *signal = signal_in_picoamps(rec);
 
         // now feed algorithm with chunks of signal simulating real-time
-        const int chunk_size = 1200; // todo: load this from params
         const int num_chunks = (rec->len_raw_signal + chunk_size-1) / chunk_size;
         float **chunks = get_chunks(signal, rec->len_raw_signal, chunk_size, num_chunks);
 
@@ -337,7 +343,7 @@ static inline void print_help_msg(FILE *fp_help) {
     fprintf(fp_help,"   jnn+dtw: sigfish real genome.fa reads.blow5\n");
 }
 
-#define SAMPLES_PER_EVENT 24
+#define SAMPLES_PER_EVENT 24 // important note: value may be dependent on pore
 
 int real_main(int argc, char* argv[]) {
 
@@ -388,7 +394,7 @@ int real_main(int argc, char* argv[]) {
         } else if (c == 'q') { //query size
             opt.query_size_events = atoi(optarg);
             if (opt.query_size_events < 0) {
-                ERROR("Query size should larger than 0. You entered %d",opt.query_size_events);
+                ERROR("Query size should larger than 0. You entered %d", opt.query_size_events);
                 exit(EXIT_FAILURE);
             }
             opt.query_size_sig = SAMPLES_PER_EVENT * opt.query_size_events;
@@ -413,17 +419,22 @@ int real_main(int argc, char* argv[]) {
         slow5file = argv[optind +1];
         fasta_file = argv[optind];
     } else {
-        ERROR("%s","Too many arguments");
+        ERROR("%s", "Too many arguments");
         exit(EXIT_FAILURE);
     }
 
     slow5_file_t *sp = slow5_open(slow5file,"r");
     if (sp == NULL) {
-       fprintf(stderr,"Error in opening file\n");
+       ERROR("%s", "Error in opening file\n");
        exit(EXIT_FAILURE);
     }
 
     opt.pore = pore_detect(sp);
+
+    if (drna_detect(sp) != 1) {
+        ERROR("%s", "Detected something other than RNA data, aborting");
+        exit(EXIT_FAILURE);
+    }
 
     if (fasta_file != NULL) {
         if (num_thread > 1) {
