@@ -31,14 +31,14 @@ typedef struct {
 } \
 
 #define JNNV3_RNA004_ADAPTOR { \
-    .std_scale = 0.9, \
-    .corrector = 1200, \
+    .std_scale = 0.7, \
+    .corrector = 2400, \
     .seg_dist = 1800, \
     .window = 300, \
     .error = 5, \
     .min_seg_len = 4000, \
-    .chunk_size = 1200, \
-    .start_chunks = 11, \
+    .chunk_size = 2400, \
+    .start_chunks = 6, \
 } \
 
 typedef struct jnnv3_astate_s {
