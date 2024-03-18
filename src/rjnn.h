@@ -32,7 +32,7 @@ typedef struct {
 
 #define JNNV3_RNA004_ADAPTOR { \
     .std_scale = 0.7, \
-    .corrector = 1200, \
+    .corrector = 2400, \
     .seg_dist = 1800, \
     .window = 300, \
     .error = 5, \
