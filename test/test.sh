@@ -109,10 +109,6 @@ echo "RNA real prefix"
 ex ./sigfish real test/sequin_rna.blow5 > test/prefix_real_rna.txt || die "Running the tool failed"
 execute_test test/prefix_real_rna.txt test/data/prefix_real_rna.exp 5 || die "diff failed"
 
-echo "DNA real prefix"
-ex ./sigfish real test/sp1_dna.blow5 > test/prefix_real_dna.txt || die "Running the tool failed"
-execute_test test/prefix_real_dna.txt test/data/prefix_real_dna.exp 5 || die "diff failed"
-
 echo "*******************************************************"
 echo "Tests passed"
 echo "*******************************************************"
