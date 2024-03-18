@@ -1398,9 +1398,6 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
 }
 
 
-
-#define SIGFISH_CHUNK_SIZE 1200
-#define SIGFISH_MIN_SAMPLES (SIGFISH_CHUNK_SIZE*7)
 // #define SIGFISH_DTW_CUTOFF 70
 
 
@@ -1422,17 +1419,27 @@ void test1(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
 }
 
 void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
+
+    jnnv3_aparam_t param = JNNV3_R9_ADAPTOR; // may impact peformance
+    if (state->opt.pore == OPT_PORE_RNA004) {
+        jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+        param = atmp;
+    }
+
+    int chunk_size = param.chunk_size;
+    uint64_t sigfish_min_samples = chunk_size*7;
+
     //if too short to start detecting adaptor
-    if (r->len_raw_signal < SIGFISH_MIN_SAMPLES){
+    if (r->len_raw_signal < sigfish_min_samples){
         state->status[channel] = status[i] = SIGFISH_MORE;
     } else {
 
         //detect adaptor
         float sum = 0;
-        for(int j=SIGFISH_CHUNK_SIZE*6;j<SIGFISH_CHUNK_SIZE*7;j++){
+        for(int j = chunk_size*6; j < chunk_size*7; j++){
             sum += r->raw_signal[j];
         }
-        sum /= SIGFISH_CHUNK_SIZE;
+        sum /= chunk_size;
 
         if((int)sum % 2 == 0){
             state->status[channel] = status[i] = SIGFISH_REJECT;
@@ -1451,11 +1458,16 @@ void test2(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfis
 
 void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfish_status *status, int i){
 
-    if (debug == 0){
+    if (debug == 0) {
+        jnnv3_aparam_t param = JNNV3_R9_ADAPTOR; // may impact peformance
+        if (state->opt.pore == OPT_PORE_RNA004) {
+            jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
+            param = atmp;
+        }
 
         state->status[channel] = status[i] = SIGFISH_MORE;
         //if too short to start detecting adaptor
-        if (r->len_raw_signal >= SIGFISH_MIN_SAMPLES){
+        if (r->len_raw_signal >= param.chunk_size*7){
 
             float *sig_store = r->raw_signal;
             int sig_store_i = r->len_raw_signal;
@@ -1467,11 +1479,8 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
             jnnv3_astate_t *s = state->s[channel];
             jnnv3_pstate_t *t = state->t[channel];
 
-            jnnv3_aparam_t param = JNNV3_R9_ADAPTOR;
             jnnv3_pparam_t pparam = JNNV3_R9_POLYA;
             if (state->opt.pore == OPT_PORE_RNA004) {
-                jnnv3_aparam_t atmp = JNNV3_RNA004_ADAPTOR;
-                param = atmp;
                 jnnv3_pparam_t ptmp = JNNV3_RNA004_POLYA;
                 pparam = ptmp;
             }

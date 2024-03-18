@@ -1,7 +1,7 @@
 #include <sigfish.h>
 
 #define CHANNELS 10
-#define CHUNK_SIZE 1200
+#define CHUNK_SIZE 1200 // todo: this variable may be depended on pore
 #define ROUNDS 10
 
 int main(){
