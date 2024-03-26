@@ -1397,7 +1397,6 @@ aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_
     return best_aln;
 }
 
-
 // #define SIGFISH_DTW_CUTOFF 70
 
 
@@ -1499,7 +1498,7 @@ void decide(sigfish_rstate_t *r, sigfish_state_t *state, int channel, enum sigfi
                 if (s->adapter_found){
                     jnn_pair_t p = s->segs[0];
                     LOG_TRACE("Adapter found at %ld,%ld. sigstore size %d",p.x,p.y,sig_store_i);
-                    jnnv3_pcalc_param(t,p,sig_store,sig_store_i);
+                    jnnv3_pcalc_param(t, p, pparam, sig_store, sig_store_i);
                     chunk = &sig_store[p.y];
                     current_chunk_size = sig_store_i-p.y;
 

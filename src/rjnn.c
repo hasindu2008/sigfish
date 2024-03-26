@@ -193,13 +193,13 @@ void reset_jnnv3_pstate(jnnv3_pstate_t *state, jnnv3_pparam_t param){
 }
 
 
-void jnnv3_pcalc_param(jnnv3_pstate_t *state, jnn_pair_t adapt, float *sig_store, int sig_size){
+void jnnv3_pcalc_param(jnnv3_pstate_t *state, jnn_pair_t adapt, jnnv3_pparam_t param, float *sig_store, int sig_size) {
     jnn_pair_t p = adapt;
     ASSERT(p.y > 0);
     ASSERT(p.y < sig_size);
     state->mean = meanf(&sig_store[p.x],p.y-p.x);
-    state->top = state->mean+30+20;
-    state->bot = state->mean+30-20;
+    state->top = state->mean + param.offset + param.range;
+    state->bot = state->mean + param.offset - param.range;
 }
 
 
