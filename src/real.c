@@ -89,14 +89,14 @@ void jnn_v3(const float *raw, int64_t nsample, jnnv3_aparam_t param, jnnv3_astat
             jnnv3_acore(s, param, chunk, current_chunk_size);
             if (s->adapter_found){
                 jnn_pair_t p = s->segs[0];
-                jnnv3_pcalc_param(t, p, sig_store, sig_store_i);
+                jnnv3_pcalc_param(t, p, pparam, sig_store, sig_store_i);
                 chunk = &sig_store[p.y];
                 current_chunk_size = sig_store_i - p.y;
             }
         }
 
         if(s->adapter_found && !t->polya_found){
-            jnnv3_pcore(t, pparam,chunk,current_chunk_size);
+            jnnv3_pcore(t, pparam, chunk, current_chunk_size);
         }
 
         if (t->polya_found) {

@@ -13,7 +13,7 @@ typedef struct {
     int seg_dist; // distance between 2 segs to be merged as one
     int window;
     int error;
-    int min_seg_len;
+    int min_seg_len; // this will affect polyA detection too, make sure it's not too high (cutting somewhere is better than nowhere)
     int chunk_size;
     int start_chunks; // num of chunks to store before processing
 } jnnv3_aparam_t;
@@ -31,13 +31,13 @@ typedef struct {
 } \
 
 #define JNNV3_RNA004_ADAPTOR { \
-    .std_scale = 0.7, \
-    .corrector = 2400, \
-    .seg_dist = 1800, \
+    .std_scale = 0.3, \
+    .corrector = 800, \
+    .seg_dist = 1200, \
     .window = 300, \
     .error = 5, \
-    .min_seg_len = 4000, \
-    .chunk_size = 2400, \
+    .min_seg_len = 1200, \
+    .chunk_size = 1600, \
     .start_chunks = 6, \
 } \
 
@@ -79,6 +79,8 @@ typedef struct {
     int window;
     float stall_len;
     int error;
+    float offset; // offset from median for polyA lo and hi error thresholds
+    float range; // half height of lo and hi error thresholds
 } jnnv3_pparam_t;
 
 // dRNA realtime polyA parameters
@@ -88,6 +90,8 @@ typedef struct {
     .window = 250, \
     .stall_len = 1.0, \
     .error = 30, \
+    .offset = 30, \
+    .range = 20, \
 } \
 
 #define JNNV3_RNA004_POLYA { \
@@ -95,7 +99,9 @@ typedef struct {
     .seg_dist = 200, \
     .window = 250, \
     .stall_len = 1.0, \
-    .error = 30, \
+    .error = 42, \
+    .offset = 44, \
+    .range = 32, \
 } \
 
 typedef struct jnnv3_pstate_s {
@@ -124,5 +130,5 @@ typedef struct jnnv3_pstate_s {
 jnnv3_pstate_t *init_jnnv3_pstate(jnnv3_pparam_t param);
 void free_jnnv3_pstate(jnnv3_pstate_t *state);
 void reset_jnnv3_pstate(jnnv3_pstate_t *state, jnnv3_pparam_t param);
-void jnnv3_pcalc_param(jnnv3_pstate_t *state, jnn_pair_t adapt, float *sig_store, int sig_size);
+void jnnv3_pcalc_param(jnnv3_pstate_t *state, jnn_pair_t adapt, jnnv3_pparam_t param, float *sig_store, int sig_size);
 void jnnv3_pcore(jnnv3_pstate_t *t, jnnv3_pparam_t param, float *chunk, int current_chunk_size);
