@@ -31,7 +31,7 @@ typedef struct {
 } \
 
 #define JNNV3_RNA004_ADAPTOR { \
-    .std_scale = 0.2, \
+    .std_scale = 0.3, \
     .corrector = 800, \
     .seg_dist = 1200, \
     .window = 300, \
@@ -99,9 +99,9 @@ typedef struct {
     .seg_dist = 200, \
     .window = 250, \
     .stall_len = 1.0, \
-    .error = 30, \
+    .error = 42, \
     .offset = 44, \
-    .range = 26, \
+    .range = 32, \
 } \
 
 typedef struct jnnv3_pstate_s {
