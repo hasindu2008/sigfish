@@ -31,12 +31,12 @@ typedef struct {
 } \
 
 #define JNNV3_RNA004_ADAPTOR { \
-    .std_scale = 0.2, \
-    .corrector = 1200, \
-    .seg_dist = 2400, \
+    .std_scale = 0.3, \
+    .corrector = 800, \
+    .seg_dist = 1200, \
     .window = 300, \
     .error = 5, \
-    .min_seg_len = 1000, \
+    .min_seg_len = 800, \
     .chunk_size = 1600, \
     .start_chunks = 5, \
 } \
@@ -96,11 +96,11 @@ typedef struct {
 
 #define JNNV3_RNA004_POLYA { \
     .corrector = 50, \
-    .seg_dist = 200, \
-    .window = 250, \
+    .seg_dist = 300, \
+    .window = 300, \
     .stall_len = 1.0, \
-    .error = 60, \
-    .offset = 46, \
+    .error = 42, \
+    .offset = 44, \
     .range = 32, \
 } \
 
