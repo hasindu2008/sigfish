@@ -36,9 +36,9 @@ typedef struct {
     .seg_dist = 1200, \
     .window = 300, \
     .error = 5, \
-    .min_seg_len = 800, \
+    .min_seg_len = 1200, \
     .chunk_size = 1600, \
-    .start_chunks = 5, \
+    .start_chunks = 6, \
 } \
 
 typedef struct jnnv3_astate_s {
@@ -96,8 +96,8 @@ typedef struct {
 
 #define JNNV3_RNA004_POLYA { \
     .corrector = 50, \
-    .seg_dist = 300, \
-    .window = 300, \
+    .seg_dist = 200, \
+    .window = 250, \
     .stall_len = 1.0, \
     .error = 42, \
     .offset = 44, \
