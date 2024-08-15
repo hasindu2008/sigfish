@@ -440,8 +440,8 @@ int real_main(int argc, char* argv[]) {
     }
 
     if (opt.pore == OPT_PORE_RNA004) {
-        opt.dtw_cutoff = 40;
-        opt.query_size_events = 150;
+        opt.dtw_cutoff = 55;
+        opt.query_size_events = 200;
         opt.samples_per_event = 30;
     }
 

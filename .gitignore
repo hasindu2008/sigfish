@@ -98,3 +98,4 @@ test/sp1_dna/batch0.blow5.idx
 test/sp1_dna/batch0.fastq.fai
 test/sp1_dna/test.paf
 *.tmp
+*.csv

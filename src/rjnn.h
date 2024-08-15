@@ -33,14 +33,14 @@ typedef struct {
 } \
 
 #define JNNV3_RNA004_ADAPTOR { \
-    .std_scale = 1.0, \
+    .std_scale = 0.3, \
     .corrector = 1200, \
     .seg_dist = 800, \
-    .window = 100, \
+    .window = 300, \
     .error = 5, \
     .min_seg_len = 1200, \
-    .chunk_size = 500, \
-    .start_chunks = 4, \
+    .chunk_size = 1600, \
+    .start_chunks = 2, \
     .no_err_thresh = 800, \
 } \
 
@@ -103,8 +103,8 @@ typedef struct {
     .window = 250, \
     .stall_len = 1.0, \
     .error = 30, \
-    .offset = 30, \
-    .range = 20, \
+    .offset = 42, \
+    .range = 32, \
 } \
 
 typedef struct jnnv3_pstate_s {
