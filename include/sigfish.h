@@ -6,7 +6,7 @@
 #define SIGFISH_H
 
 #include <stdint.h>
-#include "slow5/slow5.h"
+#include <slow5/slow5.h>
 
 #define SIGFISH_VERSION "0.2.0"
 
@@ -267,6 +267,77 @@ typedef struct {
     int64_t num_bytes;
 } ret_status_t;
 
+
+//realtime sigfish
+
+
+enum sigfish_status{
+    SIGFISH_MORE = 0,      //more data needed
+    SIGFISH_REJECT = 1,    //reject the read
+    SIGFISH_CONT =2     //continue with the read
+};
+
+typedef struct{
+    int num_thread;
+    const char *debug_paf;
+    int8_t no_full_ref;
+    float dtw_cutoff;
+    int query_size_sig;
+    int query_size_events;
+    int8_t pore;
+    int samples_per_event;
+} sigfish_opt_t;
+
+typedef struct{
+    int32_t read_number;
+    int32_t channel;
+    uint64_t len_raw_signal;
+    float* raw_signal;
+    char *read_id;
+} sigfish_read_t;
+
+typedef struct{
+    int32_t read_number;
+    uint64_t len_raw_signal;
+    float* raw_signal;
+    uint64_t c_raw_signal;
+    char *read_id;
+    uint64_t cur_chunk_st;
+}  sigfish_rstate_t;
+
+typedef struct jnnv3_astate_s jnnv3_astate_t;
+typedef struct jnnv3_pstate_s jnnv3_pstate_t;
+
+typedef struct{
+    uint32_t num_channels;
+    int num_thread;
+    const char *refname;
+    FILE *debug_paf;
+    char **debug;
+    sigfish_opt_t opt; //remove redundant threads, etc in both
+    enum sigfish_status *status;
+    enum sigfish_status *status_ret;
+    sigfish_rstate_t *reads;
+    refsynth_t *ref;
+    jnnv3_astate_t **s;
+    jnnv3_pstate_t **t;
+    int n_rec;
+} sigfish_state_t;
+
+
+/* argument wrapper for the multithreaded framework used for data processing */
+typedef struct {
+    sigfish_state_t* state;
+    sigfish_read_t* db;
+    int32_t starti;
+    int32_t endi;
+    void (*func)(sigfish_state_t*,sigfish_read_t*,int);
+    int32_t thread_index;
+#ifdef WORK_STEAL
+    void *all_pthread_args;
+#endif
+} pthread_arg_rt_t;
+
 /******************************************
  * function prototype for major functions *
  ******************************************/
@@ -304,5 +375,18 @@ void free_db(db_t* db);
 
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);
+
+
+/*******************************REALTIME STUF**************************/
+// #define QUERY_SIZE_EVENTS 250
+// #define QUERY_SIZE_SIG 6000
+
+sigfish_state_t *init_sigfish(const char *ref, int num_channels, sigfish_opt_t opt);
+void free_sigfish(sigfish_state_t *state);
+enum sigfish_status *process_sigfish(sigfish_state_t *state, sigfish_read_t *read_batch, int batch_size);
+aln_t map(refsynth_t *ref, float *raw, int64_t nsample, int polyend, char *read_id, char **sp, sigfish_opt_t opt, int *nevents);
+void work_rt(sigfish_state_t* state, sigfish_read_t * db, void (*func)(sigfish_state_t*,sigfish_read_t*,int));
+int8_t pore_detect(slow5_file_t *sp);
+int8_t drna_detect(slow5_file_t *sp);
 
 #endif

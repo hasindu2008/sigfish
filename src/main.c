@@ -6,8 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
-#include <assert.h>
-#include "sigfish.h"
+#include <sigfish.h>
 #include "misc.h"
 #include "error.h"
 
@@ -41,6 +40,7 @@ void sig_handler(int sig) {
 
 int dtw_main(int argc, char* argv[]);
 int eval_main(int argc, char* argv[]);
+int real_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
@@ -48,6 +48,7 @@ int print_usage(FILE *fp_help){
     fprintf(fp_help,"command:\n");
     fprintf(fp_help,"         dtw       align query signal to target reference in using DTW\n");
     fprintf(fp_help,"         eval      evaluate mappings\n");
+    fprintf(fp_help,"         real      perform the real-time version of prefix or jnn+dtw\n");
     if(fp_help==stderr){
         exit(EXIT_FAILURE);
     }
@@ -55,7 +56,7 @@ int print_usage(FILE *fp_help){
         exit(EXIT_SUCCESS);
     }
     else{
-        assert(0);
+        ASSERT(0);
     }
 
 
@@ -76,6 +77,9 @@ int main(int argc, char* argv[]){
     }
     else if (strcmp(argv[1],"eval")==0){
         ret = eval_main(argc-1, argv+1);
+    }
+    else if (strcmp(argv[1],"real")==0){
+        ret = real_main(argc-1, argv+1);
     }
     else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"sigfish %s\n",SIGFISH_VERSION);

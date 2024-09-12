@@ -21,6 +21,25 @@ ex() {
     fi
 }
 
+handle_tests() {
+	numfailed=$(wc -l < diff.txt)
+	numcases=$(wc -l < ${ORIG})
+	numres=$(wc -l < ${RES})
+	echo "$numfailed of $numcases test cases deviated."
+	missing=$(echo "$numcases-$numres" | bc)
+	echo "$missing entries in the truthset are missing in the testset"
+	failp=$(echo "$numfailed*100/$numcases" | bc)
+	[ "$failp" -gt ${THRESH} ] && die "${1}: Validation failed"
+	echo "Validation passed"
+}
+
+execute_test() {
+	ORIG=$1
+	RES=$2
+	THRESH=$3
+	diff -y --suppress-common-lines ${ORIG} ${RES} > diff.txt || handle_tests $testdir
+}
+
 EVALUATE(){
     ex ./sigfish eval ${REF_PAF} ${MY_PAF} > $EVAL || die "Running the tool failed"
     MAPPED=$(grep -w "mapped_testset" $EVAL | head -1 | awk '{print $3}' | tr -d '(%)' )
@@ -46,6 +65,8 @@ THREADS=8
 
 make
 
+# dtw
+
 REF=test/nCoV-2019.reference.fasta
 BLOW5=test/sp1_dna.blow5
 REF_PAF=test/sp1_dna.minimap2.paf
@@ -55,7 +76,7 @@ MAPPED_THRSH=100.0
 CORRECT_THRSH=85.0
 
 echo "DNA sp1"
-ex  ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS}  > ${MY_PAF} || die "Running the DTW failed"
+ex  ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} > ${MY_PAF} || die "Running the DTW failed"
 EVALUATE
 
 REF=test/rnasequin_sequences_2.4.fa
@@ -70,6 +91,23 @@ echo "RNA sequin"
 ex ./sigfish dtw ${REF} ${BLOW5} -t ${THREADS} --rna -q 500  -p -1 > ${MY_PAF}  || die "Running the DTW failed"
 EVALUATE
 
+echo "RNA real jnn+dtw single-thread"
+ex ./sigfish real ${REF} ${BLOW5} -t 1 > ${MY_PAF} || die "Running the tool failed"
+EVALUATE
+
+echo "RNA real jnn+dtw multi-thread"
+ex ./sigfish real ${REF} ${BLOW5} -t ${THREADS} > ${MY_PAF} || die "Running the tool failed"
+EVALUATE
+
+echo "RNA real jnn+dtw multi-thread full ref"
+./sigfish real --full-ref  ${REF} ${BLOW5} -t ${THREADS} > ${MY_PAF} || die "Running the tool failed"
+EVALUATE
+
+# realtime prefix
+
+echo "RNA real prefix"
+ex ./sigfish real test/sequin_rna.blow5 > test/prefix_real_rna.txt || die "Running the tool failed"
+execute_test test/prefix_real_rna.txt test/data/prefix_real_rna.exp 5 || die "diff failed"
 
 echo "*******************************************************"
 echo "Tests passed"

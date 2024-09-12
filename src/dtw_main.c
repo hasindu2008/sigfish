@@ -2,9 +2,8 @@
 **
 ** @@
 ******************************************************************************/
-#include "sigfish.h"
+#include <sigfish.h>
 #include "misc.h"
-#include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -120,6 +119,41 @@ static void sam_hdr_wr(refsynth_t *ref) {
         fprintf(stdout, "@SQ\tSN:%s\tLN:%ld\n", ref->ref_names[i], (long)ref->ref_lengths[i]);
     }
     fprintf(stdout, "@PG\tID:sigfish\tPN:sigfish\tVN:%s\n", SIGFISH_VERSION);
+}
+
+void check_compat(core_t *core){
+    opt_t opt = core->opt;
+    if (!(opt.flag & SIGFISH_RNA)){ //dna
+        if(opt.flag & SIGFISH_DTW){
+            ERROR("%s","DTW is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+        if(opt.flag & SIGFISH_INV){
+            ERROR("%s","Inversion is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+        if(opt.flag & SIGFISH_REF){
+            ERROR("%s","--full-ref is only available for RNA.");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (opt.prefix_size < 0){
+        if(!(opt.flag & SIGFISH_RNA)){
+            ERROR("%s","DNA does not support auto query start detection.");
+            exit(EXIT_FAILURE);
+        } else {
+            if(opt.flag & SIGFISH_INV){
+                ERROR("%s","Inversion is not compatible with auto query start detection.");
+                exit(EXIT_FAILURE);
+            }
+            if(opt.flag & SIGFISH_END){
+                ERROR("%s","Mapping from query end is not compatible with auto query start detection.");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
 }
 
 int dtw_main(int argc, char* argv[]) {
@@ -245,36 +279,8 @@ int dtw_main(int argc, char* argv[]) {
     fastafile = argv[optind];
     slow5file = argv[optind+1];
 
-    if (!(opt.flag & SIGFISH_RNA)){ //dna
-        if(opt.flag & SIGFISH_DTW){
-            ERROR("%s","DTW is only available for RNA.");
-            exit(EXIT_FAILURE);
-        }
-        if(opt.flag & SIGFISH_INV){
-            ERROR("%s","Inversion is only available for RNA.");
-            exit(EXIT_FAILURE);
-        }
-        if(opt.flag & SIGFISH_REF){
-            ERROR("%s","--full-ref is only available for RNA.");
-            exit(EXIT_FAILURE);
-        }
-    }
 
-    if (opt.prefix_size < 0){
-        if(!(opt.flag & SIGFISH_RNA)){
-            ERROR("%s","DNA does not support auto query start detection.");
-            exit(EXIT_FAILURE);
-        } else {
-            if(opt.flag & SIGFISH_INV){
-                ERROR("%s","Inversion is not compatible with auto query start detection.");
-                exit(EXIT_FAILURE);
-            }
-            if(opt.flag & SIGFISH_END){
-                ERROR("%s","Mapping from query end is not compatible with auto query start detection.");
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
+
 
     if (slow5file == NULL || fastafile == NULL || fp_help == stdout) {
         print_help_msg(fp_help, opt);
@@ -284,8 +290,11 @@ int dtw_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+
     //initialise the core data structure
     core_t* core = init_core(fastafile, slow5file, opt, realtime0);
+
+    check_compat(core);
 
     int32_t counter=0;
 
